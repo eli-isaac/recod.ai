@@ -1,0 +1,14 @@
+.venv/
+.env
+data/
+logs/
+models/
+results/
+src/
+test/
+test_data/
+test_results/
+test_models/
+test_logs/
+test_data/
+test_results/
