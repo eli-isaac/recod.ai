@@ -1,0 +1,16 @@
+kaggle
+pandas
+numpy
+matplotlib
+scikit-learn
+seaborn
+torch
+torchvision
+opencv-python
+albumentations
+Pillow
+tqdm
+transformers
+sam3
+open_clip_torch
+sentencepiece
