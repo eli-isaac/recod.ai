@@ -12,3 +12,13 @@ test_models/
 test_logs/
 test_data/
 test_results/
+*.pth
+*.pth.tar
+*.pt
+*.pt.tar
+*.pth.tar.gz
+*.pt.tar.gz
+*.pth.tar.bz2
+*.pt.tar.bz2
+*.pth.tar.xz
+*.pt.tar.xz
