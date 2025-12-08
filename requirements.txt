@@ -10,7 +10,8 @@ opencv-python
 albumentations
 Pillow
 tqdm
-transformers
+git+https://github.com/huggingface/transformers.git
 sam3
 open_clip_torch
 sentencepiece
+numba
