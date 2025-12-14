@@ -19,7 +19,7 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.config import DatasetConfig
+from src.data.config import DatasetConfig
 from src.data.download import download_dataset
 from src.data.pipeline import run_pipeline
 from src.data.segmentation import load_sam3_model

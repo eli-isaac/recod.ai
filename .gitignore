@@ -4,8 +4,8 @@ venv/
 .env
 
 # Data (download separately)
-data/
-!data/.gitkeep
+/data/
+!/data/.gitkeep
 
 # Model checkpoints
 checkpoints/
