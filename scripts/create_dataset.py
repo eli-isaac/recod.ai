@@ -67,6 +67,15 @@ def step_upload(config: DatasetConfig) -> None:
         print("Run the create step first.")
         return
 
+    # Check if images and masks directories exist
+    images_dir = config.storage.images_path
+    masks_dir = config.storage.masks_path
+    
+    if not images_dir.exists() or not masks_dir.exists():
+        print(f"Expected images/ and masks/ in {config.storage.output_path}")
+        print("Run the create step first.")
+        return
+
     upload_dataset(
         output_dir=config.storage.output_path,
         repo_id=config.output.dataset_id,
