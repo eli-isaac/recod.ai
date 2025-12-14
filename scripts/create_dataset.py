@@ -21,8 +21,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data.config import DatasetConfig
 from src.data.download import download_dataset
-from src.data.pipeline import run_pipeline
-from src.data.segmentation import load_sam3_model
 from src.data.upload import upload_dataset
 
 
@@ -37,34 +35,25 @@ def step_download(config: DatasetConfig) -> None:
         output_dir=config.storage.download_path,
         split=config.source.split,
         image_column=config.source.image_column,
-        max_size_bytes=config.segmentation.max_image_size_bytes,
     )
-
-    print(f"\nDownload complete. Images saved to: {config.storage.download_path}")
 
 
 def step_create(config: DatasetConfig) -> None:
     """Step 2: Create forgeries using SAM3 segmentation (batch processing)."""
+    # Lazy import to avoid loading transformers when not needed
+    from src.data.pipeline import run_pipeline
+    from src.data.segmentation import load_sam3_model
+
     print("\n" + "=" * 60)
     print("STEP 2: CREATING VARIATIONS AND MASKS")
     print("=" * 60 + "\n")
 
-    # Load SAM3 model once
     print("Loading SAM3 model...")
-    model, processor = load_sam3_model(
-        model_id=config.segmentation.model_id,
-    )
+    model, processor = load_sam3_model(config.segmentation.model_id)
 
-    # Run the batch processing pipeline
-    results = run_pipeline(
-        config=config,
-        model=model,
-        processor=processor,
-    )
+    results = run_pipeline(config, model, processor)
 
-    print("\nCreation complete.")
-    print(f"Total forgeries: {results['total_forgeries']}")
-    print(f"Errors: {results['total_errors']}")
+    print(f"\nCreated {results['total_forgeries']} forgeries, {results['total_errors']} errors")
 
 
 def step_upload(config: DatasetConfig) -> None:
@@ -78,16 +67,11 @@ def step_upload(config: DatasetConfig) -> None:
         print("Run the create step first.")
         return
 
-    url = upload_dataset(
+    upload_dataset(
         output_dir=config.storage.output_path,
         repo_id=config.output.dataset_id,
-        use_chunking=True,
-        chunk_size=config.upload.chunk_size,
         private=config.output.private,
-        ignore_patterns=config.upload.ignore_patterns,
     )
-
-    print(f"\nUpload complete: {url}")
 
 
 def main():
@@ -115,11 +99,8 @@ def main():
     print("=" * 60)
     print("FORGERY DATASET CREATION")
     print("=" * 60)
-    print(f"Config: {args.config}")
-    print(f"Step: {args.step}")
-    print(f"Source dataset: {config.source.dataset_id}")
-    print(f"Output dataset: {config.output.dataset_id}")
-    print(f"Batch size: {config.processing.process_batch_size}")
+    print(f"Source: {config.source.dataset_id}")
+    print(f"Output: {config.output.dataset_id}")
 
     # Run requested step(s)
     if args.step in ["download", "all"]:

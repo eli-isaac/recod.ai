@@ -1,10 +1,9 @@
 """
-Typed configuration dataclasses for dataset creation.
+Configuration for dataset creation.
 """
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from src.utils.config import load_config
 
@@ -12,7 +11,6 @@ from src.utils.config import load_config
 @dataclass
 class SourceConfig:
     """Source dataset configuration."""
-
     dataset_id: str
     split: str = "train"
     image_column: str = "image"
@@ -21,20 +19,15 @@ class SourceConfig:
 @dataclass
 class OutputConfig:
     """Output dataset configuration."""
-
     dataset_id: str
     private: bool = False
 
 
 @dataclass
 class StorageConfig:
-    """Local storage configuration."""
-
-    data_dir: str = "data/"
+    """Local storage paths."""
     download_dir: str = "data/raw"
     output_dir: str = "data/processed"
-    images_subdir: str = "images"
-    masks_subdir: str = "masks"
 
     @property
     def download_path(self) -> Path:
@@ -46,119 +39,74 @@ class StorageConfig:
 
     @property
     def images_path(self) -> Path:
-        return self.output_path / self.images_subdir
+        return self.output_path / "images"
 
     @property
     def masks_path(self) -> Path:
-        return self.output_path / self.masks_subdir
+        return self.output_path / "masks"
 
 
 @dataclass
 class SegmentationConfig:
-    """SAM3 segmentation configuration."""
-
+    """SAM3 segmentation settings."""
     model_id: str = "facebook/sam3"
-    batch_size: int = 16
     threshold: float = 0.5
     mask_threshold: float = 0.4
     prompt: str = "distinct object"
     min_mask_area_ratio: float = 0.005
     max_mask_area_ratio: float = 0.2
-    max_image_size_bytes: Optional[int] = 2000000
 
 
 @dataclass
 class VariationConfig:
-    """A single forgery variation."""
-
+    """A forgery variation."""
     name: str
     num_copies: list[int]
 
 
 @dataclass
 class ForgeryConfig:
-    """Forgery creation configuration."""
-
-    variations_per_image: int = 5
+    """Forgery creation settings."""
+    variations_per_image: int = 5  # How many variations to sample per image
     prevent_overlap: bool = True
     max_placement_attempts: int = 1000
     variations: list[VariationConfig] = field(default_factory=list)
 
 
 @dataclass
-class UploadConfig:
-    """Upload configuration."""
-
-    chunk_size: int = 500
-    ignore_patterns: list[str] = field(
-        default_factory=lambda: ["*.ipynb_checkpoints", "__pycache__", "*.pyc"]
-    )
-
-
-@dataclass
-class ProcessingConfig:
-    """Processing configuration."""
-
-    seed: int = 42
-    num_workers: int = 4
-    process_batch_size: int = 32  # Batch size for end-to-end processing
-
-
-@dataclass
 class DatasetConfig:
     """Complete dataset creation configuration."""
-
     source: SourceConfig
     output: OutputConfig
     storage: StorageConfig
     segmentation: SegmentationConfig
     forgery: ForgeryConfig
-    upload: UploadConfig
-    processing: ProcessingConfig
+    batch_size: int = 32
+    seed: int = 42
 
     @classmethod
     def from_yaml(cls, config_path: str) -> "DatasetConfig":
         """Load configuration from YAML file."""
-        raw_config = load_config(config_path)
-        return cls.from_dict(raw_config)
-
-    @classmethod
-    def from_dict(cls, config: dict) -> "DatasetConfig":
-        """Create config from dictionary. Missing values use dataclass defaults."""
-
-        # Helper to extract section with defaults from dataclass
-        def get_section(name: str) -> dict:
-            return config.get(name, {})
-
-        source = get_section("source")
-        output = get_section("output")
-        storage = get_section("storage")
-        segmentation = get_section("segmentation")
-        forgery = get_section("forgery")
-        upload = get_section("upload")
-        processing = get_section("processing")
+        raw = load_config(config_path)
 
         # Parse variations
+        forgery = raw.get("forgery", {})
         variations = [
             VariationConfig(name=v["name"], num_copies=v["num_copies"])
             for v in forgery.get("variations", [])
         ]
 
         return cls(
-            source=SourceConfig(
-                dataset_id=source["dataset_id"],
-                **{k: v for k, v in source.items() if k != "dataset_id"},
-            ),
-            output=OutputConfig(
-                dataset_id=output["dataset_id"],
-                **{k: v for k, v in output.items() if k != "dataset_id"},
-            ),
-            storage=StorageConfig(**storage),
-            segmentation=SegmentationConfig(**segmentation),
+            source=SourceConfig(**raw.get("source", {})),
+            output=OutputConfig(**raw.get("output", {})),
+            storage=StorageConfig(**raw.get("storage", {})),
+            segmentation=SegmentationConfig(**raw.get("segmentation", {})),
             forgery=ForgeryConfig(
-                **{k: v for k, v in forgery.items() if k != "variations"},
+                variations_per_image=forgery.get("variations_per_image", 5),
+                prevent_overlap=forgery.get("prevent_overlap", True),
+                max_placement_attempts=forgery.get("max_placement_attempts", 1000),
                 variations=variations,
             ),
-            upload=UploadConfig(**upload),
-            processing=ProcessingConfig(**processing),
+            batch_size=raw.get("processing", {}).get("batch_size", 32),
+            seed=raw.get("processing", {}).get("seed", 42),
         )

@@ -13,7 +13,6 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.data import load_dataset_from_config
 from src.utils.config import load_config
 
 
@@ -37,16 +36,21 @@ def main():
     config = load_config(args.config)
     print(f"Loaded config from {args.config}")
 
-    # Load dataset (downloads from HF if needed)
-    dataset = load_dataset_from_config(config["data"])
-    print(f"Dataset loaded: {dataset}")
+    data_dir = Path(config["data"].get("data_dir", "data/raw"))
+    print(f"Data directory: {data_dir}")
+
+    if not data_dir.exists():
+        print(f"Error: Data directory does not exist: {data_dir}")
+        print("Run 'python scripts/download_data.py' first.")
+        sys.exit(1)
 
     # TODO: Implement training loop
-    # 1. Create PyTorch DataLoaders from HF dataset
-    # 2. Initialize model
-    # 3. Setup optimizer and scheduler
-    # 4. Training loop with validation
-    # 5. Save checkpoints
+    # 1. Create PyTorch Dataset from local image paths
+    # 2. Create DataLoaders
+    # 3. Initialize model
+    # 4. Setup optimizer and scheduler
+    # 5. Training loop with validation
+    # 6. Save checkpoints
 
     raise NotImplementedError("Training loop not yet implemented")
 
