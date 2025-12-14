@@ -15,3 +15,6 @@ sam3
 open_clip_torch
 sentencepiece
 numba
+datasets
+huggingface_hub
+pyyaml

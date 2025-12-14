@@ -1,0 +1,97 @@
+# Dataset Creation Configuration
+
+# Source dataset to download
+source:
+  dataset_id: "eliplutchok/recod-source"  # HuggingFace dataset ID to download
+  split: "train"                           # Dataset split to use
+  image_column: "image"                    # Column name containing images
+
+# Output dataset to upload
+output:
+  dataset_id: "eliplutchok/recod-forgery"  # HuggingFace dataset ID to upload
+  private: false                            # Whether the dataset should be private
+
+# Local storage
+storage:
+  data_dir: "data/"                        # Base data directory
+  download_dir: "data/raw"                 # Where to store downloaded images
+  output_dir: "data/processed"             # Where to store processed images/masks
+  images_subdir: "images"                  # Subdirectory for forged images
+  masks_subdir: "masks"                    # Subdirectory for masks
+
+# Segmentation settings (SAM3)
+segmentation:
+  model_id: "facebook/sam3"                # SAM3 model ID
+  batch_size: 16                           # Batch size for segmentation
+  threshold: 0.5                           # Detection threshold
+  mask_threshold: 0.4                      # Mask threshold
+  prompt: "distinct object"                # Text prompt for segmentation
+
+  # Mask filtering
+  min_mask_area_ratio: 0.005              # Minimum mask area as ratio of image
+  max_mask_area_ratio: 0.2                # Maximum mask area as ratio of image
+  max_image_size_bytes: 2000000           # Max image size (2MB) to process
+
+# Forgery creation settings
+forgery:
+  variations_per_image: 5                  # Number of variations to sample per image
+  prevent_overlap: true                    # Prevent pasted objects from overlapping
+  max_placement_attempts: 1000             # Max attempts to find valid placement
+
+  # Available variations (name -> num_copies per object)
+  # Each variation specifies how many copies to make of each selected object
+  variations:
+    - name: "1.1"
+      num_copies: [1]
+    - name: "1.2"
+      num_copies: [1]
+    - name: "1.3"
+      num_copies: [1]
+    - name: "2.1"
+      num_copies: [2]
+    - name: "2.2"
+      num_copies: [2]
+    - name: "3"
+      num_copies: [3]
+    - name: "1-1.1"
+      num_copies: [1, 1]
+    - name: "1-1.2"
+      num_copies: [1, 1]
+    - name: "1-2"
+      num_copies: [1, 2]
+    - name: "2-1"
+      num_copies: [2, 1]
+    - name: "2-2"
+      num_copies: [2, 2]
+    - name: "1-3"
+      num_copies: [1, 3]
+    - name: "2-3"
+      num_copies: [2, 3]
+    - name: "1-1-1"
+      num_copies: [1, 1, 1]
+    - name: "1-1-2"
+      num_copies: [1, 1, 2]
+    - name: "1-1-3"
+      num_copies: [1, 1, 3]
+    - name: "1-3-3"
+      num_copies: [1, 3, 3]
+    - name: "1-1-1-1"
+      num_copies: [1, 1, 1, 1]
+    - name: "1-1-1-2"
+      num_copies: [1, 1, 1, 2]
+    - name: "1-1-1-3"
+      num_copies: [1, 1, 1, 3]
+
+# Upload settings
+upload:
+  chunk_size: 500                          # Number of files per chunk for zipping
+  ignore_patterns:                         # Patterns to ignore during upload
+    - "*.ipynb_checkpoints"
+    - "__pycache__"
+    - "*.pyc"
+
+# Processing settings
+processing:
+  seed: 42                                 # Random seed for reproducibility
+  num_workers: 4                           # Number of workers for data loading
+  process_batch_size: 32                   # Batch size for end-to-end processing (load->segment->forge->save)
