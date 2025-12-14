@@ -204,9 +204,18 @@ def process_batch(
     forgeries_created = 0
     errors = 0
 
+    authentics_created = 0
+
     # Process each image
     for path, image, sam_result in zip(paths, images, sam_results):
         try:
+            stem = path.stem
+
+            # Save authentic version if enabled (no mask file)
+            if forgery_config.include_authentic:
+                image.save(storage.images_path / f"{stem}.png")
+                authentics_created += 1
+
             image_size = image.width * image.height
 
             # Get candidate masks
@@ -238,8 +247,7 @@ def process_batch(
                     max_attempts=forgery_config.max_placement_attempts,
                 )
 
-                # Save
-                stem = path.stem
+                # Save forged image with mask
                 forged_image.save(storage.images_path / f"{stem}_{variation.name}.png")
                 np.save(storage.masks_path / f"{stem}_{variation.name}.npy", mask)
                 forgeries_created += 1
@@ -248,7 +256,7 @@ def process_batch(
             print(f"Error processing {path.name}: {e}")
             errors += 1
 
-    return {"forgeries": forgeries_created, "errors": errors}
+    return {"forgeries": forgeries_created, "authentics": authentics_created, "errors": errors}
 
 
 def run_pipeline(
@@ -267,6 +275,7 @@ def run_pipeline(
     print(f"Found {len(image_paths)} images")
 
     total_forgeries = 0
+    total_authentics = 0
     total_errors = 0
 
     for i in range(0, len(image_paths), config.batch_size):
@@ -278,6 +287,11 @@ def run_pipeline(
 
         result = process_batch(batch_paths, model, processor, config)
         total_forgeries += result["forgeries"]
+        total_authentics += result["authentics"]
         total_errors += result["errors"]
 
-    return {"total_forgeries": total_forgeries, "total_errors": total_errors}
+    return {
+        "total_forgeries": total_forgeries,
+        "total_authentics": total_authentics,
+        "total_errors": total_errors,
+    }

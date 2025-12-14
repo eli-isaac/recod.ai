@@ -70,6 +70,7 @@ class ForgeryConfig:
     variations_per_image: int = 5  # How many variations to sample per image
     prevent_overlap: bool = True
     max_placement_attempts: int = 1000
+    include_authentic: bool = True  # Also save authentic (unmodified) version
     variations: list[VariationConfig] = field(default_factory=list)
 
 
@@ -105,6 +106,7 @@ class DatasetConfig:
                 variations_per_image=forgery.get("variations_per_image", 5),
                 prevent_overlap=forgery.get("prevent_overlap", True),
                 max_placement_attempts=forgery.get("max_placement_attempts", 1000),
+                include_authentic=forgery.get("include_authentic", False),
                 variations=variations,
             ),
             batch_size=raw.get("processing", {}).get("batch_size", 32),

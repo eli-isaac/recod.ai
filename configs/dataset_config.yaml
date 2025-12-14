@@ -6,12 +6,13 @@ source:
   image_column: "image"
 
 output:
-  dataset_id: "eliplutchok/recod-forgery"
+  dataset_id: "eliplutchok/recod-pretrain"
   private: false
 
 storage:
   download_dir: "data/raw"
   output_dir: "data/processed"
+  authentic_dir: "data/raw"  # Use raw images as authentic samples (optional)
 
 segmentation:
   model_id: "facebook/sam3"
@@ -25,6 +26,7 @@ forgery:
   variations_per_image: 5  # Randomly sample this many variations per image
   prevent_overlap: true
   max_placement_attempts: 1000
+  include_authentic: true  # Also save unmodified original as authentic sample
   variations:
     - name: "1.1"
       num_copies: [1]

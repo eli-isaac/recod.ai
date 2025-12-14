@@ -53,7 +53,7 @@ def step_create(config: DatasetConfig) -> None:
 
     results = run_pipeline(config, model, processor)
 
-    print(f"\nCreated {results['total_forgeries']} forgeries, {results['total_errors']} errors")
+    print(f"\nCreated {results['total_forgeries']} forgeries, {results['total_authentics']} authentics, {results['total_errors']} errors")
 
 
 def step_upload(config: DatasetConfig) -> None:
@@ -67,12 +67,11 @@ def step_upload(config: DatasetConfig) -> None:
         print("Run the create step first.")
         return
 
-    # Check if images and masks directories exist
+    # Check if images directory exists (masks are optional for authentic images)
     images_dir = config.storage.images_path
-    masks_dir = config.storage.masks_path
     
-    if not images_dir.exists() or not masks_dir.exists():
-        print(f"Expected images/ and masks/ in {config.storage.output_path}")
+    if not images_dir.exists():
+        print(f"Expected images/ in {config.storage.output_path}")
         print("Run the create step first.")
         return
 

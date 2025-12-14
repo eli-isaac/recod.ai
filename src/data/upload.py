@@ -11,14 +11,17 @@ from huggingface_hub import HfApi
 
 def create_dataset_from_files(
     images_dir: Path,
-    masks_dir: Path,
+    masks_dir: Path | None = None,
 ) -> Dataset | None:
     """
     Create a HuggingFace Dataset from local image and mask files.
     
+    Images without a corresponding mask file are treated as authentic
+    (mask will be None).
+    
     Args:
         images_dir: Directory containing PNG images
-        masks_dir: Directory containing NPY mask files
+        masks_dir: Directory containing NPY mask files (optional)
         
     Returns:
         Dataset or None if no data found
@@ -34,25 +37,32 @@ def create_dataset_from_files(
         "mask": [],
     }
     
+    n_forged = 0
+    n_authentic = 0
+    
     for img_path in image_paths:
         sample_id = img_path.stem
-        mask_path = masks_dir / f"{sample_id}.npy"
         
-        if not mask_path.exists():
-            print(f"Warning: No mask for {sample_id}, skipping")
-            continue
-        
-        # Load mask
-        mask = np.load(mask_path)
+        # Check for mask file
+        mask = None
+        if masks_dir is not None:
+            mask_path = masks_dir / f"{sample_id}.npy"
+            if mask_path.exists():
+                mask = np.load(mask_path)
+                n_forged += 1
+            else:
+                n_authentic += 1
+        else:
+            n_authentic += 1
         
         data["image"].append(str(img_path))  # datasets.Image loads from path
-        data["mask"].append(mask)
+        data["mask"].append(mask)  # None for authentic images
     
     if not data["image"]:
         print("No valid samples found")
         return None
     
-    print(f"Preparing {len(data['image'])} samples...")
+    print(f"Preparing {len(data['image'])} samples ({n_forged} forged, {n_authentic} authentic)...")
     
     # Create dataset with proper features
     dataset = Dataset.from_dict(data)
@@ -91,8 +101,11 @@ def upload_dataset(
     
     if not images_dir.exists():
         raise FileNotFoundError(f"Images directory does not exist: {images_dir}")
+    
+    # masks_dir is optional - images without masks are treated as authentic
     if not masks_dir.exists():
-        raise FileNotFoundError(f"Masks directory does not exist: {masks_dir}")
+        print(f"No masks directory found - all images will be treated as authentic")
+        masks_dir = None
     
     api = HfApi()
     
