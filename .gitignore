@@ -1,24 +1,44 @@
+# Virtual environments
+venv/
 .venv/
 .env
+
+# Data (download separately)
 data/
-logs/
-models/
-results/
-src/
-test/
-test_data/
-test_results/
-test_models/
-test_logs/
-test_data/
-test_results/
-*.pth
-*.pth.tar
+!data/.gitkeep
+
+# Model checkpoints
+checkpoints/
+!checkpoints/.gitkeep
 *.pt
+*.pth
 *.pt.tar
-*.pth.tar.gz
-*.pt.tar.gz
-*.pth.tar.bz2
-*.pt.tar.bz2
-*.pth.tar.xz
-*.pt.tar.xz
+*.pth.tar
+
+# Outputs
+outputs/
+!outputs/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Old code (temporary)
+old_code/
