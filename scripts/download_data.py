@@ -14,18 +14,11 @@ import argparse
 import sys
 from pathlib import Path
 
-import yaml
-
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data import load_dataset
-
-
-def load_config(config_path: Path) -> dict:
-    """Load configuration from YAML file."""
-    with open(config_path) as f:
-        return yaml.safe_load(f)
+from src.utils.config import load_config
 
 
 def main():
