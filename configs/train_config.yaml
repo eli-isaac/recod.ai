@@ -7,9 +7,13 @@ model:
   freeze_backbone: false
 
 data:
-  train_dir: "data/train_images"
-  val_dir: "data/val_images"
-  metadata_path: "data/metadata.csv"
+  # Hugging Face dataset
+  dataset: "YOUR_USERNAME/recod-forgery"  # HuggingFace dataset ID
+  cache_dir: "data/"                       # Local cache directory
+  
+  # Optional: use local data instead of downloading
+  local_override: null  # Set to path like "./data/local" to skip HF download
+  
   num_workers: 4
 
 training:

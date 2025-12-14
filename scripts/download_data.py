@@ -1,53 +1,70 @@
 #!/usr/bin/env python3
 """
-Download dataset from Hugging Face or Kaggle.
+Download dataset from Hugging Face.
+
+This script pre-downloads the dataset so training can run offline.
+Note: The train.py script will also auto-download if data isn't cached.
+
+Usage:
+    python scripts/download_data.py
+    python scripts/download_data.py --dataset "username/dataset-name"
 """
 
 import argparse
+import sys
 from pathlib import Path
 
+import yaml
 
-def download_from_huggingface(output_dir: Path):
-    """Download dataset from Hugging Face."""
-    # TODO: Implement HuggingFace download
-    # from datasets import load_dataset
-    # dataset = load_dataset("YOUR_USERNAME/forgery-detection")
-    raise NotImplementedError("HuggingFace download not yet implemented")
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.data import load_dataset
 
 
-def download_from_kaggle(output_dir: Path):
-    """Download dataset from Kaggle."""
-    # TODO: Implement Kaggle download
-    # import kaggle
-    # kaggle.api.competition_download_files('competition-name', path=output_dir)
-    raise NotImplementedError("Kaggle download not yet implemented")
+def load_config(config_path: Path) -> dict:
+    """Load configuration from YAML file."""
+    with open(config_path) as f:
+        return yaml.safe_load(f)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download forgery detection dataset")
+    parser = argparse.ArgumentParser(description="Download forgery detection dataset from HuggingFace")
     parser.add_argument(
-        "--source",
-        type=str,
-        choices=["huggingface", "kaggle"],
-        default="huggingface",
-        help="Data source to download from",
+        "--config",
+        type=Path,
+        default=Path("configs/train_config.yaml"),
+        help="Path to config file (to read dataset ID)",
     )
     parser.add_argument(
-        "--output-dir",
+        "--dataset",
+        type=str,
+        default=None,
+        help="HuggingFace dataset ID (overrides config)",
+    )
+    parser.add_argument(
+        "--cache-dir",
         type=Path,
-        default=Path("data/raw"),
-        help="Output directory for downloaded data",
+        default=None,
+        help="Cache directory (overrides config)",
     )
     args = parser.parse_args()
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    # Load config for defaults
+    config = load_config(args.config)
+    data_config = config["data"]
 
-    if args.source == "huggingface":
-        download_from_huggingface(args.output_dir)
-    else:
-        download_from_kaggle(args.output_dir)
+    # Use CLI args or fall back to config
+    dataset_id = args.dataset or data_config["dataset"]
+    cache_dir = args.cache_dir or Path(data_config.get("cache_dir", "data/"))
 
-    print(f"Data downloaded to {args.output_dir}")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    dataset = load_dataset(dataset_id=dataset_id, cache_dir=cache_dir)
+
+    print(f"\nDataset downloaded successfully!")
+    print(f"Dataset info: {dataset}")
+    print(f"\nCached at: {cache_dir}")
 
 
 if __name__ == "__main__":

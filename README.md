@@ -44,16 +44,18 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Download Data
-
-```bash
-python scripts/download_data.py
-```
-
 ### Training
+
+Data is automatically downloaded from Hugging Face on first run:
 
 ```bash
 python scripts/train.py --config configs/train_config.yaml
+```
+
+Or pre-download the dataset:
+
+```bash
+python scripts/download_data.py
 ```
 
 ### Inference
