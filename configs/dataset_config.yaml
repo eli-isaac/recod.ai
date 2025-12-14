@@ -12,7 +12,6 @@ output:
 storage:
   download_dir: "data/raw"
   output_dir: "data/processed"
-  authentic_dir: "data/raw"  # Use raw images as authentic samples (optional)
 
 segmentation:
   model_id: "facebook/sam3"
