@@ -4,6 +4,7 @@ Download dataset from HuggingFace.
 
 from pathlib import Path
 
+import numpy as np
 from datasets import load_dataset as hf_load_dataset
 from tqdm import tqdm
 
@@ -45,3 +46,60 @@ def download_dataset(
         image.save(output_dir / filename)
 
     print(f"Done. Saved {len(dataset)} images to {output_dir}")
+
+
+def download_training_data(
+    dataset_id: str,
+    config_name: str | None,
+    output_dir: Path,
+    split: str = "train",
+) -> None:
+    """
+    Download training dataset (images + masks) from HuggingFace to local directory.
+    
+    Creates the following structure:
+        output_dir/
+        ├── images/
+        │   ├── 000000.png
+        │   └── ...
+        └── masks/
+            ├── 000000.npy
+            └── ...
+    
+    Args:
+        dataset_id: HuggingFace dataset ID
+        config_name: Dataset config name (e.g., "pretrain")
+        output_dir: Directory to save data
+        split: Dataset split to download
+    """
+    output_dir = Path(output_dir)
+    images_dir = output_dir / "images"
+    masks_dir = output_dir / "masks"
+    
+    images_dir.mkdir(parents=True, exist_ok=True)
+    masks_dir.mkdir(parents=True, exist_ok=True)
+    
+    print(f"Loading dataset: {dataset_id}" + (f" ({config_name})" if config_name else ""))
+    
+    if config_name:
+        dataset = hf_load_dataset(dataset_id, config_name, split=split)
+    else:
+        dataset = hf_load_dataset(dataset_id, split=split)
+    
+    print(f"Saving {len(dataset)} samples...")
+    
+    for idx, item in enumerate(tqdm(dataset, desc="Downloading")):
+        filename = f"{idx:06d}"
+        
+        # Save image
+        image = item["image"]
+        image.save(images_dir / f"{filename}.png")
+        
+        # Save mask if present
+        mask = item.get("mask")
+        if mask is not None:
+            np.save(masks_dir / f"{filename}.npy", np.array(mask))
+    
+    print(f"Done. Saved to {output_dir}")
+    print(f"  - Images: {len(list(images_dir.glob('*.png')))}")
+    print(f"  - Masks: {len(list(masks_dir.glob('*.npy')))}")

@@ -20,6 +20,7 @@ class SourceConfig:
 class OutputConfig:
     """Output dataset configuration."""
     dataset_id: str
+    config_name: str = "default"  # Config name (e.g., "pretrain", "finetune")
     private: bool = False
 
 

@@ -6,7 +6,8 @@ source:
   image_column: "image"
 
 output:
-  dataset_id: "eliplutchok/recod-pretrain"
+  dataset_id: "eliplutchok/recod"
+  config_name: "pretrain"  # Use "pretrain" or "finetune"
   private: false
 
 storage:

@@ -78,6 +78,7 @@ def step_upload(config: DatasetConfig) -> None:
     upload_dataset(
         output_dir=config.storage.output_path,
         repo_id=config.output.dataset_id,
+        config_name=config.output.config_name,
         private=config.output.private,
     )
 
