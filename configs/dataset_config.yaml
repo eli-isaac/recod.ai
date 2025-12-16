@@ -1,9 +1,9 @@
 # Dataset Creation Configuration
 
 source:
-  dataset_id: "eliplutchok/recod_pretrain"
+  dataset_id: "yitzik/recod-authentic"
   split: "train"
-  image_column: "image"
+  image_column: "images"
 
 output:
   dataset_id: "eliplutchok/recod"
@@ -23,7 +23,7 @@ segmentation:
   max_mask_area_ratio: 0.2
 
 forgery:
-  variations_per_image: 5  # Randomly sample this many variations per image
+  variations_per_image: 10  # Randomly sample this many variations per image
   prevent_overlap: true
   max_placement_attempts: 1000
   include_authentic: true  # Also save unmodified original as authentic sample
@@ -72,5 +72,5 @@ forgery:
 
 
 processing:
-  batch_size: 16
+  batch_size: 32
   seed: 42

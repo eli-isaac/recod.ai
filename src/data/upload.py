@@ -16,6 +16,7 @@ def create_dataset_from_files(
     """
     Create a HuggingFace Dataset from local image and mask files.
     
+    Uses a generator to avoid loading all masks into memory at once.
     Images without a corresponding mask file are treated as authentic
     (mask will be None).
     
@@ -32,40 +33,39 @@ def create_dataset_from_files(
         print("No images found")
         return None
     
-    data = {
-        "image": [],
-        "mask": [],
-    }
-    
+    # Count samples first
     n_forged = 0
     n_authentic = 0
-    
     for img_path in image_paths:
-        sample_id = img_path.stem
-        
-        # Check for mask file
-        mask = None
         if masks_dir is not None:
-            mask_path = masks_dir / f"{sample_id}.npy"
+            mask_path = masks_dir / f"{img_path.stem}.npy"
             if mask_path.exists():
-                mask = np.load(mask_path)
                 n_forged += 1
             else:
                 n_authentic += 1
         else:
             n_authentic += 1
-        
-        data["image"].append(str(img_path))  # datasets.Image loads from path
-        data["mask"].append(mask)  # None for authentic images
     
-    if not data["image"]:
-        print("No valid samples found")
-        return None
+    print(f"Preparing {len(image_paths)} samples ({n_forged} forged, {n_authentic} authentic)...")
     
-    print(f"Preparing {len(data['image'])} samples ({n_forged} forged, {n_authentic} authentic)...")
+    def data_generator():
+        for img_path in image_paths:
+            sample_id = img_path.stem
+            
+            # Check for mask file
+            mask = None
+            if masks_dir is not None:
+                mask_path = masks_dir / f"{sample_id}.npy"
+                if mask_path.exists():
+                    mask = np.load(mask_path)
+            
+            yield {
+                "image": str(img_path),
+                "mask": mask,
+            }
     
-    # Create dataset with proper features
-    dataset = Dataset.from_dict(data)
+    # Create dataset using generator to avoid memory overflow
+    dataset = Dataset.from_generator(data_generator)
     
     # Cast image column to Image feature for proper handling
     dataset = dataset.cast_column("image", Image())
