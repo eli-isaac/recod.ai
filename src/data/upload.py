@@ -65,7 +65,8 @@ def create_dataset_from_files(
             }
     
     # Create dataset using generator to avoid memory overflow
-    dataset = Dataset.from_generator(data_generator)
+    # Use smaller writer_batch_size to avoid Arrow 2GB batch limit with large mask arrays
+    dataset = Dataset.from_generator(data_generator, writer_batch_size=500)
     
     # Cast image column to Image feature for proper handling
     dataset = dataset.cast_column("image", Image())
@@ -76,7 +77,6 @@ def create_dataset_from_files(
 def upload_dataset(
     output_dir: Path,
     repo_id: str,
-    config_name: str = "default",
     private: bool = False,
     max_shard_size: str = "500MB",
 ) -> str:
@@ -86,12 +86,10 @@ def upload_dataset(
     Uses the `datasets` library for efficient upload with:
     - Proper Arrow/Parquet format
     - Automatic sharding for large datasets
-    - Support for multiple configs (e.g., "pretrain", "finetune")
     
     Args:
         output_dir: Local directory containing images/ and masks/ subdirs
         repo_id: HuggingFace repo ID (e.g., "username/dataset-name")
-        config_name: Dataset config name (e.g., "pretrain", "finetune")
         private: Whether the dataset should be private
         max_shard_size: Max size per Parquet shard (default 500MB)
         
@@ -121,17 +119,16 @@ def upload_dataset(
     if dataset is None:
         raise ValueError("No data to upload")
     
-    print(f"Uploading {len(dataset)} samples to {repo_id} (config: {config_name})...")
+    print(f"Uploading {len(dataset)} samples to {repo_id}...")
     
     # Push to hub with efficient settings
     dataset.push_to_hub(
         repo_id,
-        config_name=config_name,
         private=private,
         max_shard_size=max_shard_size,
     )
     
     url = f"https://huggingface.co/datasets/{repo_id}"
     print(f"Upload complete: {url}")
-    print(f"Load with: load_dataset(\"{repo_id}\", \"{config_name}\")")
+    print(f"Load with: load_dataset(\"{repo_id}\")")
     return url

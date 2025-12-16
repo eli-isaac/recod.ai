@@ -1,13 +1,12 @@
 # Dataset Creation Configuration
 
 source:
-  dataset_id: "yitzik/recod-authentic"
+  dataset_id: "eliplutchok/microscopy-parasites"
   split: "train"
-  image_column: "images"
+  image_column: "image"
 
 output:
-  dataset_id: "eliplutchok/recod"
-  config_name: "pretrain"  # Use "pretrain" or "finetune"
+  dataset_id: "eliplutchok/recod-pretrain-3"  # Use separate datasets instead of configs
   private: false
 
 storage:
@@ -23,7 +22,7 @@ segmentation:
   max_mask_area_ratio: 0.2
 
 forgery:
-  variations_per_image: 10  # Randomly sample this many variations per image
+  variations_per_image: 5  # Randomly sample this many variations per image
   prevent_overlap: true
   max_placement_attempts: 1000
   include_authentic: true  # Also save unmodified original as authentic sample

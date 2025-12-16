@@ -211,7 +211,7 @@ class Trainer:
             torch.save(checkpoint, self.checkpoint_dir / "best_model.pt")
     
     def load_checkpoint(self, checkpoint_path: str) -> None:
-        """Load model checkpoint."""
+        """Load full checkpoint (model, optimizer, scheduler, training state)."""
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         
         self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -225,6 +225,18 @@ class Trainer:
         
         if self.scheduler and 'scheduler_state_dict' in checkpoint:
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    
+    def load_weights(self, checkpoint_path: str) -> None:
+        """Load model weights only (for finetuning with new config/LR)."""
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        
+        if 'model_state_dict' in checkpoint:
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            self.model.load_state_dict(checkpoint)
+        
+        # Don't load optimizer/scheduler state - use new config's settings
+        # Don't restore epoch counter - start fresh
     
     def train(self) -> dict:
         """Run full training loop."""
@@ -302,6 +314,7 @@ def train_model(
     val_loader: DataLoader,
     device: str = "cuda",
     resume_from: str | None = None,
+    weights_from: str | None = None,
 ) -> dict:
     """
     Train a forgery detection model.
@@ -312,7 +325,8 @@ def train_model(
         train_loader: Training data loader
         val_loader: Validation data loader
         device: Device to train on
-        resume_from: Optional checkpoint path to resume from
+        resume_from: Optional checkpoint path to resume from (loads full state)
+        weights_from: Optional checkpoint path to load weights only (for finetuning)
         
     Returns:
         Training results dict
@@ -322,5 +336,8 @@ def train_model(
     if resume_from:
         print(f"Resuming from {resume_from}")
         trainer.load_checkpoint(resume_from)
+    elif weights_from:
+        print(f"Loading weights from {weights_from} (finetuning mode)")
+        trainer.load_weights(weights_from)
     
     return trainer.train()

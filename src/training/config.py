@@ -20,15 +20,11 @@ class ModelConfig:
 @dataclass
 class DataConfig:
     """Data configuration."""
-    # HuggingFace dataset settings
-    dataset_id: str | None = None   # HuggingFace dataset ID
-    config_name: str | None = None  # Dataset config (e.g., "pretrain")
+    # List of HuggingFace dataset IDs to load and combine
+    datasets: list[str] = field(default_factory=list)
     
-    # Local data directory (where to store/load data)
-    train_dir: str = "data/train"   # Local training data directory
-    
-    # If True, download from HF first; if False, use existing local data
-    download: bool = True
+    # Local data directory (where to cache downloaded data)
+    cache_dir: str = "data/cache"
     
     img_size: int = 512
     num_workers: int = 4
@@ -62,6 +58,10 @@ class TrainingConfig:
     # Checkpointing
     save_every: int = 5
     checkpoint_dir: str = "checkpoints"
+    
+    # Resume/finetune from checkpoint
+    resume_from: str | None = None   # Load full state (continue training)
+    weights_from: str | None = None  # Load weights only (finetune with new config)
 
 
 @dataclass
@@ -105,11 +105,13 @@ class TrainConfig:
         
         # Parse data config
         data_raw = raw.get("data", {})
+        datasets_raw = data_raw.get("datasets", [])
+        # Support both list and single string
+        if isinstance(datasets_raw, str):
+            datasets_raw = [datasets_raw]
         data = DataConfig(
-            dataset_id=data_raw.get("dataset"),
-            config_name=data_raw.get("config_name"),
-            train_dir=data_raw.get("train_dir", "data/train"),
-            download=data_raw.get("download", True),
+            datasets=datasets_raw,
+            cache_dir=data_raw.get("cache_dir", "data/cache"),
             img_size=model_raw.get("img_size", 512),
             num_workers=data_raw.get("num_workers", 4),
             val_split=data_raw.get("val_split", 0.2),
@@ -129,6 +131,8 @@ class TrainConfig:
             scheduler=scheduler,
             save_every=training_raw.get("save_every", 5),
             checkpoint_dir=training_raw.get("checkpoint_dir", "checkpoints"),
+            resume_from=training_raw.get("resume_from"),
+            weights_from=training_raw.get("weights_from"),
         )
         
         # Parse logging config

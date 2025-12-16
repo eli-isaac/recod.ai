@@ -1,0 +1,49 @@
+# Training Configuration - Finetune Stage
+#
+# Usage:
+#   python scripts/train.py --config configs/train_config_finetune.yaml
+
+model:
+  backbone: "facebook/dinov2-base"
+  img_size: 512
+  channels: 4
+  unfreeze_blocks: 3
+  decoder_dropout: 0.15
+
+data:
+  # Finetune on labeled dataset (can also include pretrain data)
+  datasets:
+    - "eliplutchok/recod-finetune"
+    # - "eliplutchok/recod-pretrain"  # Uncomment to include pretrain data too
+  
+  num_workers: 12
+  val_split: 0.15
+
+training:
+  batch_size: 8
+  learning_rate: 1.0e-4  # Lower LR for finetuning
+  backbone_lr_scale: 0.1
+  weight_decay: 0.01
+  epochs: 20
+  early_stopping_patience: 5
+  pos_weight: 99.0
+  
+  best_model_metric: "f1"
+  
+  scheduler:
+    type: "cosine"
+    warmup_epochs: 2
+    min_lr: 1.0e-6
+
+  save_every: 5
+  checkpoint_dir: "checkpoints_finetune"
+  
+  # Load pretrained weights
+  weights_from: "checkpoints/best_model.pt"
+
+logging:
+  log_dir: "outputs/logs_finetune"
+  wandb_project: null
+  log_every_n_steps: 10
+
+seed: 42

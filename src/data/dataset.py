@@ -167,9 +167,7 @@ class ForgeryDataset(Dataset):
 
 
 def create_dataloaders(
-    dataset_id: str | None = None,
-    config_name: str | None = None,
-    local_dir: Path | None = None,
+    datasets: list[str],
     img_size: int = 512,
     num_channels: int = 4,
     batch_size: int = 8,
@@ -178,12 +176,10 @@ def create_dataloaders(
     seed: int = 42,
 ) -> tuple:
     """
-    Create train and validation dataloaders.
+    Create train and validation dataloaders from multiple HuggingFace datasets.
     
     Args:
-        dataset_id: HuggingFace dataset ID
-        config_name: Dataset config name (e.g., "pretrain", "finetune")
-        local_dir: Local data directory (alternative to HF)
+        datasets: List of HuggingFace dataset IDs to load and combine
         img_size: Target image size
         num_channels: Number of mask channels
         batch_size: Batch size
@@ -194,61 +190,43 @@ def create_dataloaders(
     Returns:
         (train_loader, val_loader)
     """
-    from torch.utils.data import DataLoader, random_split
+    from torch.utils.data import DataLoader
+    from datasets import load_dataset, concatenate_datasets
     
-    if dataset_id:
-        from datasets import load_dataset
-        
-        # Load from HuggingFace
-        if config_name:
-            hf_ds = load_dataset(dataset_id, config_name, split="train")
-        else:
-            hf_ds = load_dataset(dataset_id, split="train")
-        
-        # Split into train/val
-        total_len = len(hf_ds)
-        val_len = int(total_len * val_split)
-        train_len = total_len - val_len
-        
-        # Use HF's train_test_split for proper splitting
-        split_ds = hf_ds.train_test_split(test_size=val_split, seed=seed)
-        
-        train_dataset = ForgeryDataset(
-            hf_dataset=split_ds["train"],
-            img_size=img_size,
-            num_channels=num_channels,
-            transform=True,
-        )
-        val_dataset = ForgeryDataset(
-            hf_dataset=split_ds["test"],
-            img_size=img_size,
-            num_channels=num_channels,
-            transform=False,
-        )
-    elif local_dir:
-        # Create single dataset and split
-        full_dataset = ForgeryDataset(
-            local_dir=Path(local_dir),
-            img_size=img_size,
-            num_channels=num_channels,
-            transform=True,
-        )
-        
-        total_len = len(full_dataset)
-        val_len = int(total_len * val_split)
-        train_len = total_len - val_len
-        
-        generator = torch.Generator().manual_seed(seed)
-        train_dataset, val_dataset = random_split(
-            full_dataset, [train_len, val_len], generator=generator
-        )
-        
-        # Create separate val dataset with no augmentation
-        # (random_split shares the underlying dataset, so we need to handle this)
-        # For simplicity, we'll just use the split as-is (val will have augmentations too)
-        # A proper implementation would create separate dataset instances
+    if not datasets:
+        raise ValueError("No datasets provided")
+    
+    # Load and combine all datasets
+    all_datasets = []
+    for dataset_id in datasets:
+        print(f"Loading {dataset_id}...")
+        hf_ds = load_dataset(dataset_id, split="train")
+        all_datasets.append(hf_ds)
+        print(f"  → {len(hf_ds)} samples")
+    
+    # Concatenate all datasets
+    if len(all_datasets) == 1:
+        combined_ds = all_datasets[0]
     else:
-        raise ValueError("Either dataset_id or local_dir must be provided")
+        combined_ds = concatenate_datasets(all_datasets)
+    
+    print(f"Total: {len(combined_ds)} samples")
+    
+    # Split into train/val
+    split_ds = combined_ds.train_test_split(test_size=val_split, seed=seed)
+    
+    train_dataset = ForgeryDataset(
+        hf_dataset=split_ds["train"],
+        img_size=img_size,
+        num_channels=num_channels,
+        transform=True,
+    )
+    val_dataset = ForgeryDataset(
+        hf_dataset=split_ds["test"],
+        img_size=img_size,
+        num_channels=num_channels,
+        transform=False,
+    )
     
     train_loader = DataLoader(
         train_dataset,

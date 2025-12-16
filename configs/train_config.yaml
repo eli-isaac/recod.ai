@@ -1,51 +1,49 @@
 # Training Configuration
+#
+# Usage:
+#   python scripts/train.py --config configs/train_config.yaml
 
 model:
   backbone: "facebook/dinov2-base"
   img_size: 512
   channels: 4  # Number of mask channels
   unfreeze_blocks: 3  # Number of transformer blocks to fine-tune
-  decoder_dropout: 0.15  # Slightly higher dropout for small dataset
+  decoder_dropout: 0.15
 
 data:
-  # HuggingFace dataset
-  dataset: "eliplutchok/recod"
-  config_name: "pretrain"  # Use "pretrain" or "finetune"
+  # List of HuggingFace datasets to load and combine
+  datasets:
+    - "eliplutchok/recod-pretrain"
   
-  # Local directory for training data
-  train_dir: "data/train"
-  
-  # If true, download from HuggingFace first; if false, use existing local data
-  download: true
-  
-  num_workers: 12  # Increased for faster data loading
-  val_split: 0.15  # Slightly less validation = more training data
+  num_workers: 12
+  val_split: 0.15
 
 training:
-  batch_size: 8  # Larger batch for more stable gradients
-  learning_rate: 3.0e-4  # Higher LR for decoder (training from scratch)
-  backbone_lr_scale: 0.033  # Backbone gets ~30x smaller LR (≈1e-5)
-  weight_decay: 0.01  # Standard for AdamW with transformers
+  batch_size: 8
+  learning_rate: 3.0e-4
+  backbone_lr_scale: 0.033  # Backbone gets ~30x smaller LR
+  weight_decay: 0.01
   epochs: 40
   early_stopping_patience: 8
-  pos_weight: 99.0  # Weight for positive class (forged pixels are rare)
+  pos_weight: 99.0
   
-  # Best model selection: "f1" or "val_loss"
   best_model_metric: "f1"
   
-  # Learning rate scheduler
   scheduler:
     type: "cosine"
-    warmup_epochs: 3  # Shorter warmup for small dataset
+    warmup_epochs: 3
     min_lr: 1.0e-6
 
-  # Checkpointing
   save_every: 5
   checkpoint_dir: "checkpoints"
+  
+  # Resume/finetune (optional)
+  # resume_from: "checkpoints/checkpoint_epoch_10.pt"  # Continue interrupted training
+  # weights_from: "checkpoints/best_model.pt"          # Finetune with new config
 
 logging:
   log_dir: "outputs/logs"
-  wandb_project: null  # Set to project name to enable W&B
+  wandb_project: null
   log_every_n_steps: 10
 
 seed: 42
