@@ -20,11 +20,11 @@ class ModelConfig:
 @dataclass
 class DataConfig:
     """Data configuration."""
-    # List of HuggingFace dataset IDs to load and combine
-    datasets: list[str] = field(default_factory=list)
+    # Local directory for data storage
+    local_dir: str = "data/pretrain"
     
-    # Local data directory (where to cache downloaded data)
-    cache_dir: str = "data/cache"
+    # HuggingFace dataset IDs (downloaded to local_dir if it's empty)
+    datasets: list[str] = field(default_factory=list)
     
     img_size: int = 512
     num_workers: int = 4
@@ -57,6 +57,7 @@ class TrainingConfig:
     
     # Checkpointing
     save_every: int = 5
+    sample_every: int = 5  # Generate sample predictions every N epochs
     checkpoint_dir: str = "checkpoints"
     
     # Resume/finetune from checkpoint
@@ -110,8 +111,8 @@ class TrainConfig:
         if isinstance(datasets_raw, str):
             datasets_raw = [datasets_raw]
         data = DataConfig(
+            local_dir=data_raw.get("local_dir", "data/pretrain"),
             datasets=datasets_raw,
-            cache_dir=data_raw.get("cache_dir", "data/cache"),
             img_size=model_raw.get("img_size", 512),
             num_workers=data_raw.get("num_workers", 4),
             val_split=data_raw.get("val_split", 0.2),
@@ -130,6 +131,7 @@ class TrainConfig:
             best_model_metric=training_raw.get("best_model_metric", "f1"),
             scheduler=scheduler,
             save_every=training_raw.get("save_every", 5),
+            sample_every=training_raw.get("sample_every", 5),
             checkpoint_dir=training_raw.get("checkpoint_dir", "checkpoints"),
             resume_from=training_raw.get("resume_from"),
             weights_from=training_raw.get("weights_from"),

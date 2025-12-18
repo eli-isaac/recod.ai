@@ -198,7 +198,7 @@ def load_model(
         from src.utils import get_device
         device = get_device()
     
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     
     # Handle both raw state_dict and full checkpoint format
     if 'model_state_dict' in checkpoint:

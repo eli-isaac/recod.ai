@@ -22,7 +22,7 @@ segmentation:
   max_mask_area_ratio: 0.2
 
 forgery:
-  variations_per_image: 5  # Randomly sample this many variations per image
+  variations_per_image: 7  # Randomly sample this many variations per image
   prevent_overlap: true
   max_placement_attempts: 1000
   include_authentic: true  # Also save unmodified original as authentic sample
@@ -71,5 +71,5 @@ forgery:
 
 
 processing:
-  batch_size: 32
+  batch_size: 96
   seed: 42

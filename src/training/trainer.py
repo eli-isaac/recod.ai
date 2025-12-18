@@ -2,13 +2,16 @@
 Training loop for forgery detection model.
 """
 
+import random
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from PIL import Image
 
 from src.training.config import TrainConfig
 from src.training.losses import hungarian_matched_loss
@@ -212,7 +215,7 @@ class Trainer:
     
     def load_checkpoint(self, checkpoint_path: str) -> None:
         """Load full checkpoint (model, optimizer, scheduler, training state)."""
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
         
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -228,7 +231,7 @@ class Trainer:
     
     def load_weights(self, checkpoint_path: str) -> None:
         """Load model weights only (for finetuning with new config/LR)."""
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
         
         if 'model_state_dict' in checkpoint:
             self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -237,6 +240,46 @@ class Trainer:
         
         # Don't load optimizer/scheduler state - use new config's settings
         # Don't restore epoch counter - start fresh
+    
+    @torch.no_grad()
+    def generate_samples(self, n_samples: int = 10) -> None:
+        """Generate sample predictions from validation set."""
+        self.model.eval()
+        epoch = self.current_epoch + 1
+        
+        # Setup samples directory
+        samples_dir = self.checkpoint_dir / "samples"
+        images_dir = samples_dir / "images"
+        pred_dir = samples_dir / "pred"
+        gt_dir = samples_dir / "gt"
+        images_dir.mkdir(parents=True, exist_ok=True)
+        pred_dir.mkdir(parents=True, exist_ok=True)
+        gt_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Get random indices from validation set
+        val_dataset = self.val_loader.dataset
+        indices = random.sample(range(len(val_dataset)), min(n_samples, len(val_dataset)))
+        
+        for i, idx in enumerate(indices):
+            img_tensor, gt_mask = val_dataset[idx]
+            img_tensor = img_tensor.unsqueeze(0).to(self.device)
+            
+            # Get prediction
+            pred_logits = self.model(img_tensor)
+            pred_mask = torch.sigmoid(pred_logits).squeeze(0).cpu().numpy()
+            
+            # Save image (convert from tensor to PIL)
+            img_np = (img_tensor.squeeze(0).cpu().numpy().transpose(1, 2, 0) * 255).astype(np.uint8)
+            img_pil = Image.fromarray(img_np)
+            img_pil.save(images_dir / f"epoch{epoch:03d}_sample{i:02d}.jpg", quality=95)
+            
+            # Save predicted mask
+            np.save(pred_dir / f"epoch{epoch:03d}_sample{i:02d}.npy", pred_mask)
+            
+            # Save ground truth mask
+            np.save(gt_dir / f"epoch{epoch:03d}_sample{i:02d}.npy", gt_mask.numpy())
+        
+        print(f"  → Saved {len(indices)} samples to {samples_dir}")
     
     def train(self) -> dict:
         """Run full training loop."""
@@ -285,6 +328,10 @@ class Trainer:
             # Save checkpoint
             if (epoch + 1) % self.config.training.save_every == 0:
                 self.save_checkpoint(f"checkpoint_epoch_{epoch + 1}.pt", is_best)
+            
+            # Generate samples
+            if (epoch + 1) % self.config.training.sample_every == 0:
+                self.generate_samples(n_samples=10)
                 
             if is_best:
                 self.save_checkpoint("best_model.pt", is_best=True)

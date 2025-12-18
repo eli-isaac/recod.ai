@@ -11,10 +11,12 @@ model:
   decoder_dropout: 0.15
 
 data:
-  # Finetune on labeled dataset (can also include pretrain data)
+  # Local directory for finetune data (separate from pretrain)
+  local_dir: "data/finetune"
+  
+  # HuggingFace datasets to download (only used if local_dir is empty)
   datasets:
     - "eliplutchok/recod-finetune"
-    # - "eliplutchok/recod-pretrain"  # Uncomment to include pretrain data too
   
   num_workers: 12
   val_split: 0.15
@@ -36,6 +38,7 @@ training:
     min_lr: 1.0e-6
 
   save_every: 5
+  sample_every: 5
   checkpoint_dir: "checkpoints_finetune"
   
   # Load pretrained weights

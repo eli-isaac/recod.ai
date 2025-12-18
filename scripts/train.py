@@ -41,17 +41,15 @@ def main():
     device = get_device()
     print(f"Using device: {device}")
 
-    # Validate datasets
-    if not config.data.datasets:
-        print("Error: No datasets specified in config")
-        sys.exit(1)
+    print(f"\nData directory: {config.data.local_dir}")
+    if config.data.datasets:
+        print(f"HuggingFace datasets: {config.data.datasets}")
 
-    print(f"\nDatasets: {config.data.datasets}")
-
-    # Create dataloaders (loads directly from HuggingFace)
+    # Create dataloaders (downloads from HuggingFace if local_dir is empty)
     print("\nLoading data...")
     train_loader, val_loader = create_dataloaders(
-        datasets=config.data.datasets,
+        local_dir=config.data.local_dir,
+        datasets=config.data.datasets if config.data.datasets else None,
         img_size=config.data.img_size,
         num_channels=config.model.out_channels,
         batch_size=config.training.batch_size,

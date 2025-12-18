@@ -7,19 +7,25 @@ model:
   backbone: "facebook/dinov2-base"
   img_size: 512
   channels: 4  # Number of mask channels
-  unfreeze_blocks: 3  # Number of transformer blocks to fine-tune
+  unfreeze_blocks: 4  # Number of transformer blocks to fine-tune
   decoder_dropout: 0.15
 
 data:
-  # List of HuggingFace datasets to load and combine
-  datasets:
-    - "eliplutchok/recod-pretrain"
+  # Local directory for data storage
+  local_dir: "data/pretrain"
+  
+  # HuggingFace datasets to download (only used if local_dir is empty)
+  # If local data exists, you'll be prompted to replace/add/cancel
+  # datasets:
+  #   # - "eliplutchok/recod-pretrain-1"
+  #   # - "eliplutchok/recod-pretrain-2"
+  #   - "eliplutchok/recod-pretrain-3"
   
   num_workers: 12
-  val_split: 0.15
+  val_split: 0.12
 
 training:
-  batch_size: 8
+  batch_size: 64
   learning_rate: 3.0e-4
   backbone_lr_scale: 0.033  # Backbone gets ~30x smaller LR
   weight_decay: 0.01
@@ -35,10 +41,11 @@ training:
     min_lr: 1.0e-6
 
   save_every: 5
+  sample_every: 5  # Generate sample predictions every N epochs
   checkpoint_dir: "checkpoints"
   
   # Resume/finetune (optional)
-  # resume_from: "checkpoints/checkpoint_epoch_10.pt"  # Continue interrupted training
+  resume_from: "checkpoints/checkpoint_epoch_10.pt"  # Continue interrupted training
   # weights_from: "checkpoints/best_model.pt"          # Finetune with new config
 
 logging:

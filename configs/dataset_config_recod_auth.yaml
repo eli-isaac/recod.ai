@@ -71,5 +71,5 @@ forgery:
 
 
 processing:
-  batch_size: 32
+  batch_size: 96
   seed: 42

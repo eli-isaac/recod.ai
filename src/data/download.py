@@ -2,11 +2,13 @@
 Download dataset from HuggingFace.
 """
 
+import os
+import time
 from pathlib import Path
 
 import numpy as np
 from datasets import load_dataset as hf_load_dataset
-from tqdm import tqdm
+from PIL import Image
 
 
 def download_dataset(
@@ -18,6 +20,7 @@ def download_dataset(
 ) -> None:
     """
     Download images from a HuggingFace dataset to local directory.
+    Uses parallel processing for speed.
 
     Args:
         dataset_id: HuggingFace dataset ID (e.g., "username/dataset-name")
@@ -31,21 +34,41 @@ def download_dataset(
 
     print(f"Loading dataset: {dataset_id} (split: {split})")
     dataset = hf_load_dataset(dataset_id, split=split)
+    print(f"Total: {len(dataset)} samples")
 
-    for idx, item in enumerate(tqdm(dataset, desc="Downloading")):
-        image = item[image_column]
-
-        # Get filename from column, image attribute, or use index
-        if filename_column and filename_column in item:
-            filename = Path(item[filename_column]).stem + ".png"
+    # Save function for parallel processing
+    def save_image(example, idx):
+        image = example[image_column]
+        
+        # Get filename
+        if filename_column and filename_column in example:
+            filename = Path(example[filename_column]).stem + ".png"
         elif hasattr(image, "filename") and image.filename:
             filename = Path(image.filename).stem + ".png"
         else:
             filename = f"{idx:06d}.png"
+        
+        if isinstance(image, Image.Image):
+            image.save(str(output_dir / filename))
+        else:
+            Image.fromarray(np.array(image)).save(str(output_dir / filename))
+        
+        return example
 
-        image.save(output_dir / filename)
-
-    print(f"Done. Saved {len(dataset)} images to {output_dir}")
+    # Use parallel processing
+    num_workers = min(os.cpu_count() or 8, 16)
+    print(f"Saving with {num_workers} workers...")
+    start_time = time.time()
+    
+    dataset.map(
+        save_image,
+        with_indices=True,
+        num_proc=num_workers,
+        desc="Downloading",
+    )
+    
+    elapsed = time.time() - start_time
+    print(f"Done. Saved {len(dataset)} images to {output_dir} in {elapsed:.1f}s")
 
 
 def download_training_data(

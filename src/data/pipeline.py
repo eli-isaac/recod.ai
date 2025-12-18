@@ -110,7 +110,8 @@ def copy_paste_objects(
         max_attempts: Max placement attempts per copy
 
     Returns:
-        (forged_image, mask) where mask has shape (N, H, W) with one channel per object
+        (forged_image, mask) where mask has shape (N, H, W) with one channel per object.
+        Each channel includes BOTH the source location AND all pasted copies.
     """
     img = np.array(image)
     h, w = img.shape[:2]
@@ -125,7 +126,8 @@ def copy_paste_objects(
 
     for mask, num_copies in zip(masks, num_copies_list):
         mask_bool = mask.astype(bool)
-        obj_mask = np.zeros((h, w), dtype=bool)  # Mask for this object's copies
+        # Start with source location included in mask
+        obj_mask = mask_bool.copy()
 
         # Get bounding box
         rows = np.any(mask_bool, axis=1)
@@ -155,7 +157,7 @@ def copy_paste_objects(
                 # Paste object
                 result[offset_y:offset_y + obj_h, offset_x:offset_x + obj_w][mask_crop] = object_crop[mask_crop]
 
-                # Update this object's mask
+                # Update this object's mask (add pasted location)
                 obj_mask[offset_y:offset_y + obj_h, offset_x:offset_x + obj_w][mask_crop] = True
                 if prevent_overlap:
                     occupied[offset_y:offset_y + obj_h, offset_x:offset_x + obj_w][mask_crop] = True
