@@ -140,7 +140,7 @@ def download_from_huggingface(
     
     # Use HuggingFace's map with multiprocessing - this parallelizes the Arrow decoding
     # Cap at 16 workers - disk I/O becomes the bottleneck, not CPU
-    num_workers = min(os.cpu_count() or 8, 16)
+    num_workers = min(os.cpu_count() or 8, 12)
     print(f"  Processing with {num_workers} workers...")
     combined_ds.map(
         save_example,
