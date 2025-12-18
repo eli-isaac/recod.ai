@@ -17,6 +17,34 @@ from src.training.config import TrainConfig
 from src.training.losses import hungarian_matching, bce_loss, combined_loss
 
 
+def compute_pos_weight(dataloader: DataLoader) -> float:
+    """
+    Compute positive class weight from dataset statistics.
+    
+    Scans the dataset once to count positive vs negative pixels,
+    then returns neg_count / pos_count for use in BCE loss.
+    
+    Args:
+        dataloader: Training data loader
+        
+    Returns:
+        Positive class weight (ratio of negative to positive pixels)
+    """
+    total_pos = 0
+    total_neg = 0
+    
+    print("Computing pos_weight from dataset...")
+    for _, masks in tqdm(dataloader, desc="Scanning masks"):
+        total_pos += masks.sum().item()
+        total_neg += (1 - masks).sum().item()
+    
+    pos_weight = total_neg / (total_pos + 1e-8)
+    print(f"  → Dataset stats: {total_pos:.0f} positive pixels, {total_neg:.0f} negative pixels")
+    print(f"  → Computed pos_weight: {pos_weight:.2f}")
+    
+    return pos_weight
+
+
 def compute_f1_score(
     outputs: torch.Tensor,
     targets: torch.Tensor,
@@ -79,9 +107,12 @@ class Trainer:
         # Setup scheduler
         self.scheduler = self._setup_scheduler()
         
-        # Loss function
-        # TODO: make this dynamic based on dataset
-        self.pos_weight = torch.tensor([config.training.pos_weight], device=device)
+        # Loss function - compute pos_weight from data if not specified
+        if config.training.pos_weight is None:
+            self.pos_weight = compute_pos_weight(train_loader)
+        else:
+            self.pos_weight = config.training.pos_weight
+            print(f"Using configured pos_weight: {self.pos_weight}")
         
         # Training state
         self.current_epoch = 0
@@ -148,7 +179,7 @@ class Trainer:
             
             # Apply Hungarian matching, then compute loss on matched pairs
             matched_outputs, matched_masks = hungarian_matching(outputs, masks)
-            loss = combined_loss(matched_outputs, matched_masks, self.config.training.pos_weight)
+            loss = combined_loss(matched_outputs, matched_masks, self.pos_weight)
             
             # Backward pass
             self.optimizer.zero_grad()
@@ -185,7 +216,7 @@ class Trainer:
             
             # Apply Hungarian matching, then compute loss and F1 on matched pairs
             matched_outputs, matched_masks = hungarian_matching(outputs, masks)
-            loss = bce_loss(matched_outputs, matched_masks, self.config.training.pos_weight)
+            loss = bce_loss(matched_outputs, matched_masks, self.pos_weight)
             total_loss += loss.item()
             
             # Accumulate F1 stats using matched predictions/targets

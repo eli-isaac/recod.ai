@@ -31,7 +31,7 @@ training:
   weight_decay: 0.01
   epochs: 40
   early_stopping_patience: 8
-  pos_weight: 99.0
+  # pos_weight: 99.0
   
   best_model_metric: "f1"
   

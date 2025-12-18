@@ -48,7 +48,7 @@ class TrainingConfig:
     weight_decay: float = 1e-5
     epochs: int = 50
     early_stopping_patience: int = 10
-    pos_weight: float = 99.0  # Positive class weight for BCE loss
+    pos_weight: float | None = None  # Positive class weight for BCE (auto-computed if None)
     
     # Best model selection: "f1" or "val_loss"
     best_model_metric: str = "f1"
@@ -127,7 +127,7 @@ class TrainConfig:
             weight_decay=training_raw.get("weight_decay", 1e-5),
             epochs=training_raw.get("epochs", 50),
             early_stopping_patience=training_raw.get("early_stopping_patience", 10),
-            pos_weight=training_raw.get("pos_weight", 99.0),
+            pos_weight=training_raw.get("pos_weight"),  # None = auto-compute from data
             best_model_metric=training_raw.get("best_model_metric", "f1"),
             scheduler=scheduler,
             save_every=training_raw.get("save_every", 5),
