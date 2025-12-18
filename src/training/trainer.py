@@ -14,7 +14,7 @@ from tqdm import tqdm
 from PIL import Image
 
 from src.training.config import TrainConfig
-from src.training.losses import hungarian_matched_loss, hungarian_matching
+from src.training.losses import hungarian_matching, bce_loss, combined_loss
 
 
 def compute_f1_score(
@@ -145,7 +145,10 @@ class Trainer:
             
             # Forward pass
             outputs = self.model(images)
-            loss = hungarian_matched_loss(outputs, masks, self.config.training.pos_weight)
+            
+            # Apply Hungarian matching, then compute loss on matched pairs
+            matched_outputs, matched_masks = hungarian_matching(outputs, masks)
+            loss = combined_loss(matched_outputs, matched_masks, self.config.training.pos_weight)
             
             # Backward pass
             self.optimizer.zero_grad()
@@ -179,12 +182,11 @@ class Trainer:
             masks = masks.to(self.device)
             
             outputs = self.model(images)
-            loss = hungarian_matched_loss(outputs, masks, self.config.training.pos_weight)
-            total_loss += loss.item()
             
-            # Apply Hungarian matching BEFORE computing F1 metrics
-            # This ensures we compare optimally matched channels
+            # Apply Hungarian matching, then compute loss and F1 on matched pairs
             matched_outputs, matched_masks = hungarian_matching(outputs, masks)
+            loss = bce_loss(matched_outputs, matched_masks, self.config.training.pos_weight)
+            total_loss += loss.item()
             
             # Accumulate F1 stats using matched predictions/targets
             preds = (torch.sigmoid(matched_outputs) > 0.5).float()
