@@ -45,7 +45,7 @@ training:
   checkpoint_dir: "checkpoints"
   
   # Resume/finetune (optional)
-  resume_from: "checkpoints/checkpoint_epoch_10.pt"  # Continue interrupted training
+  # resume_from: "checkpoints/checkpoint_epoch_10.pt"  # Continue interrupted training
   # weights_from: "checkpoints/best_model.pt"          # Finetune with new config
 
 logging:

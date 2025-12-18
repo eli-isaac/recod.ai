@@ -14,7 +14,7 @@ from tqdm import tqdm
 from PIL import Image
 
 from src.training.config import TrainConfig
-from src.training.losses import hungarian_matched_loss
+from src.training.losses import hungarian_matched_loss, hungarian_matching
 
 
 def compute_f1_score(
@@ -23,7 +23,10 @@ def compute_f1_score(
     threshold: float = 0.5,
 ) -> tuple[float, float, float]:
     """
-    Compute precision, recall, and F1 score for binary segmentation.
+    Compute precision, recall, and F1 score for binary segmentation with Hungarian matching.
+    
+    Uses Hungarian matching to find optimal channel assignment before computing metrics.
+    This handles the case where channel ordering doesn't matter.
     
     Args:
         outputs: Predicted logits, shape (B, C, H, W)
@@ -33,11 +36,14 @@ def compute_f1_score(
     Returns:
         (precision, recall, f1)
     """
-    preds = (torch.sigmoid(outputs) > threshold).float()
+    # Apply Hungarian matching to align channels optimally
+    matched_outputs, matched_targets = hungarian_matching(outputs, targets)
+    
+    preds = (torch.sigmoid(matched_outputs) > threshold).float()
     
     # Flatten everything
     preds_flat = preds.view(-1)
-    targets_flat = targets.view(-1)
+    targets_flat = matched_targets.view(-1)
     
     tp = (preds_flat * targets_flat).sum().item()
     fp = (preds_flat * (1 - targets_flat)).sum().item()
@@ -176,11 +182,15 @@ class Trainer:
             loss = hungarian_matched_loss(outputs, masks, self.config.training.pos_weight)
             total_loss += loss.item()
             
-            # Accumulate F1 stats
-            preds = (torch.sigmoid(outputs) > 0.5).float()
-            total_tp += (preds * masks).sum().item()
-            total_fp += (preds * (1 - masks)).sum().item()
-            total_fn += ((1 - preds) * masks).sum().item()
+            # Apply Hungarian matching BEFORE computing F1 metrics
+            # This ensures we compare optimally matched channels
+            matched_outputs, matched_masks = hungarian_matching(outputs, masks)
+            
+            # Accumulate F1 stats using matched predictions/targets
+            preds = (torch.sigmoid(matched_outputs) > 0.5).float()
+            total_tp += (preds * matched_masks).sum().item()
+            total_fp += (preds * (1 - matched_masks)).sum().item()
+            total_fn += ((1 - preds) * matched_masks).sum().item()
         
         avg_loss = total_loss / len(self.val_loader)
         
@@ -191,7 +201,7 @@ class Trainer:
         
         return avg_loss, f1
     
-    def save_checkpoint(self, filename: str, is_best: bool = False) -> None:
+    def save_checkpoint(self, filename: str) -> None:
         """Save model checkpoint."""
         checkpoint = {
             'epoch': self.current_epoch,
@@ -209,9 +219,6 @@ class Trainer:
             checkpoint['scheduler_state_dict'] = self.scheduler.state_dict()
         
         torch.save(checkpoint, self.checkpoint_dir / filename)
-        
-        if is_best:
-            torch.save(checkpoint, self.checkpoint_dir / "best_model.pt")
     
     def load_checkpoint(self, checkpoint_path: str) -> None:
         """Load full checkpoint (model, optimizer, scheduler, training state)."""
@@ -321,21 +328,19 @@ class Trainer:
             
             if is_best:
                 self.patience_counter = 0
+                self.save_checkpoint("best_model.pt")
                 print(f"  → New best model! ({metric})")
             else:
                 self.patience_counter += 1
             
             # Save checkpoint
             if (epoch + 1) % self.config.training.save_every == 0:
-                self.save_checkpoint(f"checkpoint_epoch_{epoch + 1}.pt", is_best)
+                self.save_checkpoint(f"checkpoint_epoch_{epoch + 1}.pt")
             
             # Generate samples
             if (epoch + 1) % self.config.training.sample_every == 0:
                 self.generate_samples(n_samples=10)
                 
-            if is_best:
-                self.save_checkpoint("best_model.pt", is_best=True)
-            
             # Early stopping
             if self.patience_counter >= self.config.training.early_stopping_patience:
                 print(f"Early stopping at epoch {epoch + 1}")

@@ -139,7 +139,7 @@ def download_from_huggingface(
         return example
     
     # Use HuggingFace's map with multiprocessing - this parallelizes the Arrow decoding
-    # Cap at 16 workers - disk I/O becomes the bottleneck, not CPU
+    # Cap at 12 workers - disk I/O becomes the bottleneck, not CPU
     num_workers = min(os.cpu_count() or 8, 12)
     print(f"  Processing with {num_workers} workers...")
     combined_ds.map(
@@ -281,14 +281,8 @@ def create_dataloaders(
     
     # Download from HuggingFace if datasets specified
     if datasets:
-        existing_count = len(list(images_dir.glob("*.jpg"))) if images_dir.exists() else 0
-        if existing_count == 0:
-            print(f"No local data found in {local_dir}, downloading from HuggingFace...")
-            download_from_huggingface(datasets, local_dir)
-        else:
-            print(f"Found {existing_count} samples in {local_dir}")
-            print("To re-download, delete the directory or use download_from_huggingface() directly.")
-    
+        download_from_huggingface(datasets, local_dir)
+
     # Get all image paths
     if not images_dir.exists():
         raise ValueError(f"No data found in {local_dir}. Provide HuggingFace datasets to download.")
@@ -301,14 +295,10 @@ def create_dataloaders(
     
     # Split into train/val
     rng = np.random.default_rng(seed)
-    indices = rng.permutation(len(all_paths))
+    shuffled = rng.permutation(all_paths)
     val_size = int(len(all_paths) * val_split)
-    
-    val_indices = indices[:val_size]
-    train_indices = indices[val_size:]
-    
-    train_paths = [all_paths[i] for i in train_indices]
-    val_paths = [all_paths[i] for i in val_indices]
+    val_paths = shuffled[:val_size]
+    train_paths = shuffled[val_size:]
     
     print(f"Train: {len(train_paths)}, Val: {len(val_paths)}")
     
