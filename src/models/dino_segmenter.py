@@ -9,7 +9,11 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import AutoImageProcessor, AutoModel
+from transformers import AutoModel
+
+# ImageNet normalization (used by DINOv2)
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
 class DinoDecoder(nn.Module):
@@ -84,12 +88,24 @@ class DinoSegmenter(nn.Module):
         self.backbone_name = backbone
         self.out_channels = out_channels
         
-        # Load DINOv2 encoder and processor
-        self.processor = AutoImageProcessor.from_pretrained(backbone)
-        self.encoder = AutoModel.from_pretrained(backbone)
+        # For segmentation, we skip resize/crop and process at full resolution.
+        # DINOv2 handles arbitrary sizes via position embedding interpolation.
         
-        # Get hidden size from encoder config
+        # Load DINOv2 encoder
+        self.encoder = AutoModel.from_pretrained(backbone)
         hidden_size = self.encoder.config.hidden_size
+        
+        # Register normalization parameters as buffers (move with model to GPU)
+        self.register_buffer(
+            'pixel_mean',
+            torch.tensor(IMAGENET_MEAN).view(1, 3, 1, 1),
+            persistent=False
+        )
+        self.register_buffer(
+            'pixel_std',
+            torch.tensor(IMAGENET_STD).view(1, 3, 1, 1),
+            persistent=False
+        )
         
         # Freeze all parameters first
         for param in self.encoder.parameters():
@@ -108,6 +124,10 @@ class DinoSegmenter(nn.Module):
         # Decoder head
         self.decoder = DinoDecoder(hidden_size, out_channels, decoder_dropout)
     
+    def normalize(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply ImageNet normalization on GPU."""
+        return (x - self.pixel_mean) / self.pixel_std
+    
     def forward_features(self, x: torch.Tensor) -> torch.Tensor:
         """
         Extract features from DINOv2 encoder.
@@ -118,12 +138,11 @@ class DinoSegmenter(nn.Module):
         Returns:
             Feature map, shape (B, C, h, w) where h, w are spatial dims
         """
-        # Convert to format expected by processor (0-255 uint8)
-        imgs = (x * 255).clamp(0, 255).byte().permute(0, 2, 3, 1).cpu().numpy()
-        inputs = self.processor(images=list(imgs), return_tensors="pt").to(x.device)
+        # Normalize with ImageNet stats (all on GPU, no resize/crop)
+        x = self.normalize(x)
         
         # Forward through encoder
-        feats = self.encoder(**inputs).last_hidden_state
+        feats = self.encoder(pixel_values=x).last_hidden_state
         
         # Reshape to spatial feature map
         B, N, C = feats.shape

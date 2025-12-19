@@ -11,10 +11,7 @@ model:
   decoder_dropout: 0.15
 
 data:
-  # Local directory for finetune data (separate from pretrain)
-  local_dir: "data/finetune"
-  
-  # HuggingFace datasets to download (only used if local_dir is empty)
+  # HuggingFace dataset IDs
   datasets:
     - "eliplutchok/recod-finetune"
   

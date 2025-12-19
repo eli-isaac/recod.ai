@@ -11,18 +11,14 @@ model:
   decoder_dropout: 0.15
 
 data:
-  # Local directory for data storage
-  local_dir: "data/pretrain"
-  
-  # HuggingFace datasets to download (only used if local_dir is empty)
-  # If local data exists, you'll be prompted to replace/add/cancel
+  # HuggingFace dataset IDs
   datasets:
     - "eliplutchok/recod-pretrain-1"
     - "eliplutchok/recod-pretrain-2"
     - "eliplutchok/recod-pretrain-3"
   
   num_workers: 12
-  val_split: 0.12
+  val_split: 0.10
 
 training:
   batch_size: 64
@@ -31,7 +27,7 @@ training:
   weight_decay: 0.01
   epochs: 40
   early_stopping_patience: 8
-  # pos_weight: 99.0
+  # pos_weight: 86.0  # Computed from dataset (saves 18 min startup)
   
   best_model_metric: "f1"
   
@@ -41,7 +37,7 @@ training:
     min_lr: 1.0e-6
 
   save_every: 5
-  sample_every: 5  # Generate sample predictions every N epochs
+  sample_every: 3  # Generate sample predictions every N epochs
   checkpoint_dir: "checkpoints"
   
   # Resume/finetune (optional)

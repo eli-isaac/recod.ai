@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from PIL import Image
@@ -109,10 +110,17 @@ class Trainer:
         
         # Loss function - compute pos_weight from data if not specified
         if config.training.pos_weight is None:
-            self.pos_weight = compute_pos_weight(train_loader)
+            pos_weight_val = compute_pos_weight(train_loader)
         else:
-            self.pos_weight = config.training.pos_weight
-            print(f"Using configured pos_weight: {self.pos_weight}")
+            pos_weight_val = config.training.pos_weight
+            print(f"Using configured pos_weight: {pos_weight_val}")
+        
+        # Pre-create pos_weight tensor on GPU (avoids CPU->GPU transfer every batch)
+        self.pos_weight = torch.tensor([pos_weight_val], device=device)
+        
+        # Mixed precision training
+        self.use_amp = device == "cuda"
+        self.scaler = GradScaler('cuda', enabled=self.use_amp)
         
         # Training state
         self.current_epoch = 0
@@ -126,6 +134,9 @@ class Trainer:
         # Create checkpoint directory
         self.checkpoint_dir = Path(config.training.checkpoint_dir)
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        
+        if self.use_amp:
+            print("Using mixed precision training (AMP)")
     
     def _setup_optimizer(self) -> optim.Optimizer:
         """Setup optimizer with parameter groups."""
@@ -142,15 +153,24 @@ class Trainer:
         return optim.AdamW(param_groups, weight_decay=cfg.weight_decay)
     
     def _setup_scheduler(self) -> optim.lr_scheduler._LRScheduler | None:
-        """Setup learning rate scheduler."""
+        """Setup learning rate scheduler with optional warmup."""
         cfg = self.config.training.scheduler
+        total_epochs = self.config.training.epochs
+        warmup_epochs = cfg.warmup_epochs
         
         if cfg.type == "cosine":
-            return optim.lr_scheduler.CosineAnnealingWarmRestarts(
-                self.optimizer,
-                T_0=cfg.warmup_epochs,
-                eta_min=cfg.min_lr,
-            )
+            # Linear warmup followed by cosine annealing
+            def lr_lambda(epoch):
+                if epoch < warmup_epochs:
+                    # Linear warmup: 0 -> 1 over warmup_epochs
+                    return (epoch + 1) / warmup_epochs
+                else:
+                    # Cosine decay from 1 -> min_lr/lr ratio
+                    progress = (epoch - warmup_epochs) / max(1, total_epochs - warmup_epochs)
+                    min_lr_ratio = cfg.min_lr / self.config.training.learning_rate
+                    return min_lr_ratio + (1 - min_lr_ratio) * 0.5 * (1 + np.cos(np.pi * progress))
+            
+            return optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda)
         elif cfg.type == "step":
             return optim.lr_scheduler.StepLR(
                 self.optimizer,
@@ -161,7 +181,7 @@ class Trainer:
             return None
     
     def train_epoch(self) -> float:
-        """Run one training epoch."""
+        """Run one training epoch with mixed precision."""
         self.model.train()
         total_loss = 0.0
         
@@ -171,25 +191,29 @@ class Trainer:
         )
         
         for batch_idx, (images, masks) in enumerate(pbar):
-            images = images.to(self.device)
-            masks = masks.to(self.device)
+            images = images.to(self.device, non_blocking=True)
+            masks = masks.to(self.device, non_blocking=True)
             
-            # Forward pass
-            outputs = self.model(images)
+            # Forward pass with automatic mixed precision
+            with autocast('cuda', enabled=self.use_amp):
+                outputs = self.model(images)
+                
+                # Apply Hungarian matching, then compute loss on matched pairs
+                matched_outputs, matched_masks = hungarian_matching(outputs, masks)
+                loss = combined_loss(matched_outputs, matched_masks, self.pos_weight)
             
-            # Apply Hungarian matching, then compute loss on matched pairs
-            matched_outputs, matched_masks = hungarian_matching(outputs, masks)
-            loss = combined_loss(matched_outputs, matched_masks, self.pos_weight)
-            
-            # Backward pass
+            # Backward pass with gradient scaling
             self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
             
-            total_loss += loss.item()
+            # Single .item() call to avoid double GPU sync
+            loss_val = loss.item()
+            total_loss += loss_val
             
             # Update progress bar
-            pbar.set_postfix({'loss': f'{loss.item():.4f}'})
+            pbar.set_postfix({'loss': f'{loss_val:.4f}'})
         
         avg_loss = total_loss / len(self.train_loader)
         return avg_loss
@@ -197,39 +221,47 @@ class Trainer:
     @torch.no_grad()
     def validate(self) -> tuple[float, float]:
         """
-        Run validation.
+        Run validation with mixed precision.
         
         Returns:
             (avg_loss, f1_score)
         """
         self.model.eval()
-        total_loss = 0.0
-        total_tp = 0.0
-        total_fp = 0.0
-        total_fn = 0.0
+        
+        # Accumulate on GPU to minimize CPU syncs
+        total_loss = torch.tensor(0.0, device=self.device)
+        total_tp = torch.tensor(0.0, device=self.device)
+        total_fp = torch.tensor(0.0, device=self.device)
+        total_fn = torch.tensor(0.0, device=self.device)
         
         for images, masks in tqdm(self.val_loader, desc="Validation"):
-            images = images.to(self.device)
-            masks = masks.to(self.device)
+            images = images.to(self.device, non_blocking=True)
+            masks = masks.to(self.device, non_blocking=True)
             
-            outputs = self.model(images)
+            with autocast('cuda', enabled=self.use_amp):
+                outputs = self.model(images)
+                
+                # Apply Hungarian matching, then compute loss and F1 on matched pairs
+                matched_outputs, matched_masks = hungarian_matching(outputs, masks)
+                loss = combined_loss(matched_outputs, matched_masks, self.pos_weight)
             
-            # Apply Hungarian matching, then compute loss and F1 on matched pairs
-            matched_outputs, matched_masks = hungarian_matching(outputs, masks)
-            loss = bce_loss(matched_outputs, matched_masks, self.pos_weight)
-            total_loss += loss.item()
+            total_loss += loss
             
-            # Accumulate F1 stats using matched predictions/targets
+            # Accumulate F1 stats on GPU (no .item() calls!)
             preds = (torch.sigmoid(matched_outputs) > 0.5).float()
-            total_tp += (preds * matched_masks).sum().item()
-            total_fp += (preds * (1 - matched_masks)).sum().item()
-            total_fn += ((1 - preds) * matched_masks).sum().item()
+            total_tp += (preds * matched_masks).sum()
+            total_fp += (preds * (1 - matched_masks)).sum()
+            total_fn += ((1 - preds) * matched_masks).sum()
         
-        avg_loss = total_loss / len(self.val_loader)
+        # Single GPU sync at the end
+        avg_loss = (total_loss / len(self.val_loader)).item()
+        tp = total_tp.item()
+        fp = total_fp.item()
+        fn = total_fn.item()
         
         # Compute F1 from accumulated stats
-        precision = total_tp / (total_tp + total_fp + 1e-8)
-        recall = total_tp / (total_tp + total_fn + 1e-8)
+        precision = tp / (tp + fp + 1e-8)
+        recall = tp / (tp + fn + 1e-8)
         f1 = 2 * precision * recall / (precision + recall + 1e-8)
         
         return avg_loss, f1
@@ -251,6 +283,9 @@ class Trainer:
         if self.scheduler:
             checkpoint['scheduler_state_dict'] = self.scheduler.state_dict()
         
+        if self.use_amp:
+            checkpoint['scaler_state_dict'] = self.scaler.state_dict()
+        
         torch.save(checkpoint, self.checkpoint_dir / filename)
     
     def load_checkpoint(self, checkpoint_path: str) -> None:
@@ -268,6 +303,9 @@ class Trainer:
         
         if self.scheduler and 'scheduler_state_dict' in checkpoint:
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        
+        if self.use_amp and 'scaler_state_dict' in checkpoint:
+            self.scaler.load_state_dict(checkpoint['scaler_state_dict'])
     
     def load_weights(self, checkpoint_path: str) -> None:
         """Load model weights only (for finetuning with new config/LR)."""
@@ -304,8 +342,9 @@ class Trainer:
             img_tensor, gt_mask = val_dataset[idx]
             img_tensor = img_tensor.unsqueeze(0).to(self.device)
             
-            # Get prediction
-            pred_logits = self.model(img_tensor)
+            # Get prediction with mixed precision
+            with autocast('cuda', enabled=self.use_amp):
+                pred_logits = self.model(img_tensor)
             pred_mask = torch.sigmoid(pred_logits).squeeze(0).cpu().numpy()
             
             # Save image (convert from tensor to PIL)

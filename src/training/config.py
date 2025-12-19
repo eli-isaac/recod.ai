@@ -20,10 +20,7 @@ class ModelConfig:
 @dataclass
 class DataConfig:
     """Data configuration."""
-    # Local directory for data storage
-    local_dir: str = "data/pretrain"
-    
-    # HuggingFace dataset IDs (downloaded to local_dir if it's empty)
+    # HuggingFace dataset IDs
     datasets: list[str] = field(default_factory=list)
     
     img_size: int = 512
@@ -111,7 +108,6 @@ class TrainConfig:
         if isinstance(datasets_raw, str):
             datasets_raw = [datasets_raw]
         data = DataConfig(
-            local_dir=data_raw.get("local_dir", "data/pretrain"),
             datasets=datasets_raw,
             img_size=model_raw.get("img_size", 512),
             num_workers=data_raw.get("num_workers", 4),

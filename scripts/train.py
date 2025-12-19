@@ -10,6 +10,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import torch
+
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -41,15 +43,12 @@ def main():
     device = get_device()
     print(f"Using device: {device}")
 
-    print(f"\nData directory: {config.data.local_dir}")
-    if config.data.datasets:
-        print(f"HuggingFace datasets: {config.data.datasets}")
+    print(f"\nHuggingFace datasets: {config.data.datasets}")
 
-    # Create dataloaders (downloads from HuggingFace if local_dir is empty)
+    # Create dataloaders from HuggingFace
     print("\nLoading data...")
     train_loader, val_loader = create_dataloaders(
-        local_dir=config.data.local_dir,
-        datasets=config.data.datasets if config.data.datasets else None,
+        datasets=config.data.datasets,
         img_size=config.data.img_size,
         num_channels=config.model.out_channels,
         batch_size=config.training.batch_size,
@@ -58,6 +57,12 @@ def main():
         seed=config.seed,
     )
 
+    # Enable cuDNN autotuner (finds fastest conv algorithms for your input sizes)
+    torch.backends.cudnn.benchmark = True
+    
+    # Use TensorFloat-32 for matmuls on Ampere+ GPUs (faster with minimal precision loss)
+    torch.set_float32_matmul_precision('high')
+    
     # Create model
     print("\nCreating model...")
     model = DinoSegmenter(
@@ -66,6 +71,11 @@ def main():
         unfreeze_blocks=config.model.unfreeze_blocks,
         decoder_dropout=config.model.decoder_dropout,
     )
+    
+    # Compile model for faster execution (PyTorch 2.0+)
+    if hasattr(torch, 'compile'):
+        print("Compiling model with torch.compile...")
+        model = torch.compile(model)
 
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters())
