@@ -15,7 +15,7 @@ from tqdm import tqdm
 from PIL import Image
 
 from src.training.config import TrainConfig
-from src.training.losses import hungarian_matching, bce_loss, combined_loss
+from src.training.losses import hungarian_matching, combined_loss
 
 
 def compute_pos_weight(
@@ -323,7 +323,7 @@ class Trainer:
 
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        self.current_epoch = checkpoint["epoch"]
+        self.current_epoch = checkpoint["epoch"] + 1  # Resume from NEXT epoch
         self.train_losses = checkpoint["train_losses"]
         self.val_losses = checkpoint["val_losses"]
         self.val_f1_scores = checkpoint.get("val_f1_scores", [])
