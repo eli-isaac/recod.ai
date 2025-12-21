@@ -21,7 +21,7 @@ def get_train_transforms(img_size: int = 512) -> A.Compose:
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.RandomRotate90(p=0.5),
-        A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.15, rotate_limit=15, p=0.5),
+        A.Affine(translate_percent=0.1, scale=(0.85, 1.15), rotate=(-15, 15), p=0.5),
         
         # Color transforms
         A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
@@ -30,7 +30,7 @@ def get_train_transforms(img_size: int = 512) -> A.Compose:
         A.CLAHE(clip_limit=2.0, p=0.2),
         
         # Noise and blur (mild - don't destroy forgery artifacts)
-        A.GaussNoise(var_limit=(5, 25), p=0.2),
+        A.GaussNoise(std_range=(0.02, 0.1), p=0.2),
         A.GaussianBlur(blur_limit=(3, 5), p=0.2),
         A.MotionBlur(blur_limit=3, p=0.1),
         
@@ -38,7 +38,7 @@ def get_train_transforms(img_size: int = 512) -> A.Compose:
         A.ImageCompression(quality_range=(60, 100), p=0.4),
         
         # Dropout (helps with occlusion robustness)
-        A.CoarseDropout(max_holes=8, max_height=32, max_width=32, fill_value=0, p=0.2),
+        A.CoarseDropout(num_holes_range=(1, 8), hole_height_range=(8, 32), hole_width_range=(8, 32), p=0.2),
         
         ToTensorV2(),
     ])

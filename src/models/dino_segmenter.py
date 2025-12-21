@@ -105,7 +105,7 @@ class DinoSegmenter(nn.Module):
         self.encoder = AutoModel.from_pretrained(backbone)
         hidden_size = self.encoder.config.hidden_size
 
-        self.processor = AutoImageProcessor.from_pretrained(backbone)
+        self.processor = AutoImageProcessor.from_pretrained(backbone, use_fast=True)
         # Freeze all parameters first
         for param in self.encoder.parameters():
             param.requires_grad = False
