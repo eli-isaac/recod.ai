@@ -137,6 +137,9 @@ class DinoSegmenter(nn.Module):
         imgs = (x * 255).clamp(0, 255).byte().permute(0, 2, 3, 1)
         inputs = self.processor(images=imgs, return_tensors="pt")
 
+        # Move to same device/dtype as model for AMP compatibility
+        inputs = {k: v.to(x.device, x.dtype) if v.is_floating_point() else v.to(x.device) for k, v in inputs.items()}
+
         # Forward through encoder
         feats = self.encoder(**inputs).last_hidden_state
 
