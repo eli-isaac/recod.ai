@@ -71,11 +71,6 @@ def main():
         unfreeze_blocks=config.model.unfreeze_blocks,
         decoder_dropout=config.model.decoder_dropout,
     )
-    
-    # Compile model for faster execution (PyTorch 2.0+)
-    if hasattr(torch, 'compile'):
-        print("Compiling model with torch.compile...")
-        model = torch.compile(model)
 
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters())

@@ -13,15 +13,33 @@ from albumentations.pytorch import ToTensorV2
 
 
 def get_train_transforms(img_size: int = 512) -> A.Compose:
-    """Get training augmentations."""
+    """Get training augmentations for forgery detection."""
     return A.Compose([
         A.Resize(img_size, img_size),
+        
+        # Geometric transforms
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.RandomRotate90(p=0.5),
-        A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.05, p=0.5),
-        A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=10, p=0.3),
-        A.ImageCompression(quality_range=(70, 100), p=0.3),
+        A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.15, rotate_limit=15, p=0.5),
+        
+        # Color transforms
+        A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+        A.HueSaturationValue(hue_shift_limit=15, sat_shift_limit=25, val_shift_limit=15, p=0.4),
+        A.RandomGamma(gamma_limit=(80, 120), p=0.3),
+        A.CLAHE(clip_limit=2.0, p=0.2),
+        
+        # Noise and blur (mild - don't destroy forgery artifacts)
+        A.GaussNoise(var_limit=(5, 25), p=0.2),
+        A.GaussianBlur(blur_limit=(3, 5), p=0.2),
+        A.MotionBlur(blur_limit=3, p=0.1),
+        
+        # Compression artifacts (common in real images)
+        A.ImageCompression(quality_range=(60, 100), p=0.4),
+        
+        # Dropout (helps with occlusion robustness)
+        A.CoarseDropout(max_holes=8, max_height=32, max_width=32, fill_value=0, p=0.2),
+        
         ToTensorV2(),
     ])
 

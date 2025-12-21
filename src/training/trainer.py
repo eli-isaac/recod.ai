@@ -227,7 +227,7 @@ class Trainer:
                 outputs = self.model(images)
 
                 # Apply Hungarian matching, then compute loss on matched pairs
-                matched_outputs, matched_masks = hungarian_matching(outputs, masks, combined_loss)
+                matched_outputs, matched_masks = hungarian_matching(outputs, masks)
                 loss = combined_loss(matched_outputs, matched_masks, self.pos_weight)
 
             # Backward pass with gradient scaling
@@ -269,7 +269,7 @@ class Trainer:
                 outputs = self.model(images)
 
                 # Apply Hungarian matching, then compute loss and F1 on matched pairs
-                matched_outputs, matched_masks = hungarian_matching(outputs, masks, combined_loss)
+                matched_outputs, matched_masks = hungarian_matching(outputs, masks)
                 loss = combined_loss(matched_outputs, matched_masks, self.pos_weight)
 
             total_loss += loss
