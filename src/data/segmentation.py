@@ -4,8 +4,9 @@ SAM3 (Segment Anything Model 3) segmentation utilities.
 
 from typing import Tuple
 
-import torch
 from transformers import Sam3Model, Sam3Processor
+
+from src.utils import get_device
 
 
 def load_sam3_model(
@@ -23,12 +24,7 @@ def load_sam3_model(
     print(f"Loading SAM3 model: {model_id}")
 
     # Determine device
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif torch.backends.mps.is_available():
-        device = "mps"
-    else:
-        device = "cpu"
+    device = get_device()
 
     print(f"Using device: {device}")
 

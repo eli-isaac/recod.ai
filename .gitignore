@@ -6,6 +6,7 @@ venv/
 # Data (download separately)
 /data/
 !/data/.gitkeep
+new_data/
 
 # Model checkpoints
 checkpoints/
