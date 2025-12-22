@@ -9,11 +9,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import AutoModel, AutoImageProcessor
-
-# ImageNet normalization (used by DINOv2)
-IMAGENET_MEAN = (0.485, 0.456, 0.406)
-IMAGENET_STD = (0.229, 0.224, 0.225)
+from transformers import AutoModel
 
 
 class DinoDecoder(nn.Module):
@@ -105,7 +101,14 @@ class DinoSegmenter(nn.Module):
         self.encoder = AutoModel.from_pretrained(backbone)
         hidden_size = self.encoder.config.hidden_size
 
-        self.processor = AutoImageProcessor.from_pretrained(backbone, use_fast=True)
+        # ImageNet normalization as buffers (move to GPU with model)
+        self.register_buffer(
+            "mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
+        )
+        self.register_buffer(
+            "std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
+        )
+
         # Freeze all parameters first
         for param in self.encoder.parameters():
             param.requires_grad = False
@@ -133,15 +136,11 @@ class DinoSegmenter(nn.Module):
         Returns:
             Feature map, shape (B, C, h, w) where h, w are spatial dims
         """
-        # Convert from [0, 1] to [0, 255]
-        imgs = (x * 255).clamp(0, 255).byte().permute(0, 2, 3, 1)
-        inputs = self.processor(images=imgs, return_tensors="pt")
-
-        # Move to same device/dtype as model for AMP compatibility
-        inputs = {k: v.to(x.device, x.dtype) if v.is_floating_point() else v.to(x.device) for k, v in inputs.items()}
+        # Normalize with ImageNet stats (x is [0, 1])
+        x_norm = (x - self.mean) / self.std
 
         # Forward through encoder
-        feats = self.encoder(**inputs).last_hidden_state
+        feats = self.encoder(pixel_values=x_norm).last_hidden_state
 
         # Reshape to spatial feature map
         B, N, C = feats.shape

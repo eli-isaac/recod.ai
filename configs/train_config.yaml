@@ -13,10 +13,10 @@ model:
 data:
   # HuggingFace dataset IDs
   datasets:
-    - "eliplutchok/recod-pretrain-1"
+    # - "eliplutchok/recod-pretrain-1"
     - "eliplutchok/recod-pretrain-2"
-    - "eliplutchok/recod-pretrain-3"
-    # - "eliplutchok/recod-finetune"
+    # - "eliplutchok/recod-pretrain-3"
+    - "eliplutchok/recod-finetune"
   
   num_workers: 12
   val_split: 0.10
