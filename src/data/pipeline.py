@@ -111,7 +111,7 @@ def copy_paste_objects(
 
     Returns:
         (forged_image, mask) where mask has shape (N, H, W) with one channel per object.
-        Each channel marks only the pasted (forged) locations, not the source.
+        Each channel includes BOTH the source location AND all pasted copies.
         If no copies were placed, mask will have shape (0, H, W).
     """
     img = np.array(image)
@@ -127,8 +127,8 @@ def copy_paste_objects(
 
     for mask, num_copies in zip(masks, num_copies_list):
         mask_bool = mask.astype(bool)
-        # Mask for pasted copies only (not source)
-        obj_mask = np.zeros((h, w), dtype=bool)
+        # Start with source location included in mask
+        obj_mask = mask_bool.copy()
         copies_placed = 0
 
         # Get bounding box
@@ -159,7 +159,7 @@ def copy_paste_objects(
                 # Paste object
                 result[offset_y:offset_y + obj_h, offset_x:offset_x + obj_w][mask_crop] = object_crop[mask_crop]
 
-                # Update this object's mask (pasted location only)
+                # Update this object's mask (add pasted location)
                 obj_mask[offset_y:offset_y + obj_h, offset_x:offset_x + obj_w][mask_crop] = True
                 if prevent_overlap:
                     occupied[offset_y:offset_y + obj_h, offset_x:offset_x + obj_w][mask_crop] = True
