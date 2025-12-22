@@ -7,22 +7,23 @@ model:
   backbone: "facebook/dinov2-base"
   img_size: 512
   channels: 4  # Number of mask channels
-  unfreeze_blocks: 4  # Number of transformer blocks to fine-tune
-  decoder_dropout: 0.15
+  unfreeze_blocks: 3  # Number of transformer blocks to fine-tune
+  decoder_dropout: 0.05
 
 data:
   # HuggingFace dataset IDs
   datasets:
     # - "eliplutchok/recod-pretrain-1"
-    - "eliplutchok/recod-pretrain-2"
+    # - "eliplutchok/recod-pretrain-2"
     # - "eliplutchok/recod-pretrain-3"
     - "eliplutchok/recod-finetune"
+    - "eliplutchok/recod-pretrain-original"
   
   num_workers: 12
   val_split: 0.10
 
 training:
-  batch_size: 64
+  batch_size: 32
   learning_rate: 3.0e-4
   backbone_lr_scale: 0.033  # Backbone gets ~30x smaller LR
   weight_decay: 0.01

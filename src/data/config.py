@@ -106,7 +106,7 @@ class DatasetConfig:
                 variations_per_image=forgery.get("variations_per_image", 5),
                 prevent_overlap=forgery.get("prevent_overlap", True),
                 max_placement_attempts=forgery.get("max_placement_attempts", 1000),
-                include_authentic=forgery.get("include_authentic", False),
+                include_authentic=forgery.get("include_authentic", True),
                 variations=variations,
             ),
             batch_size=raw.get("processing", {}).get("batch_size", 32),

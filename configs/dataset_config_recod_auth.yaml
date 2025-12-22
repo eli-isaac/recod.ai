@@ -6,7 +6,7 @@ source:
   image_column: "image"
 
 output:
-  dataset_id: "eliplutchok/recod-pretrain-2"  # Use separate datasets instead of configs
+  dataset_id: "eliplutchok/recod-pretrain-original"  # Use separate datasets instead of configs
   private: false
 
 storage:
@@ -22,7 +22,7 @@ segmentation:
   max_mask_area_ratio: 0.2
 
 forgery:
-  variations_per_image: 10  # Randomly sample this many variations per image
+  variations_per_image: 20  # Randomly sample this many variations per image
   prevent_overlap: true
   max_placement_attempts: 1000
   include_authentic: false  # Also save unmodified original as authentic sample
@@ -71,5 +71,5 @@ forgery:
 
 
 processing:
-  batch_size: 96
+  batch_size: 32
   seed: 42

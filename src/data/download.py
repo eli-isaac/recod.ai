@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 from datasets import load_dataset as hf_load_dataset
 from PIL import Image
+from tqdm import tqdm
 
 
 def download_dataset(

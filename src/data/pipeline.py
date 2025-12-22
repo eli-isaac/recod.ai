@@ -111,7 +111,8 @@ def copy_paste_objects(
 
     Returns:
         (forged_image, mask) where mask has shape (N, H, W) with one channel per object.
-        Each channel includes BOTH the source location AND all pasted copies.
+        Each channel marks only the pasted (forged) locations, not the source.
+        If no copies were placed, mask will have shape (0, H, W).
     """
     img = np.array(image)
     h, w = img.shape[:2]
@@ -126,8 +127,9 @@ def copy_paste_objects(
 
     for mask, num_copies in zip(masks, num_copies_list):
         mask_bool = mask.astype(bool)
-        # Start with source location included in mask
-        obj_mask = mask_bool.copy()
+        # Mask for pasted copies only (not source)
+        obj_mask = np.zeros((h, w), dtype=bool)
+        copies_placed = 0
 
         # Get bounding box
         rows = np.any(mask_bool, axis=1)
@@ -157,13 +159,16 @@ def copy_paste_objects(
                 # Paste object
                 result[offset_y:offset_y + obj_h, offset_x:offset_x + obj_w][mask_crop] = object_crop[mask_crop]
 
-                # Update this object's mask (add pasted location)
+                # Update this object's mask (pasted location only)
                 obj_mask[offset_y:offset_y + obj_h, offset_x:offset_x + obj_w][mask_crop] = True
                 if prevent_overlap:
                     occupied[offset_y:offset_y + obj_h, offset_x:offset_x + obj_w][mask_crop] = True
+                copies_placed += 1
                 break
 
-        object_masks.append(obj_mask)
+        # Only include mask if at least one copy was placed
+        if copies_placed > 0:
+            object_masks.append(obj_mask)
 
     # Stack into (N, H, W) array
     mask_3d = np.stack(object_masks) if object_masks else np.zeros((0, h, w), dtype=bool)
@@ -248,6 +253,10 @@ def process_batch(
                     prevent_overlap=forgery_config.prevent_overlap,
                     max_attempts=forgery_config.max_placement_attempts,
                 )
+
+                # Skip if no copies were placed (mask is empty)
+                if mask.shape[0] == 0:
+                    continue
 
                 # Save forged image with mask
                 forged_image.save(storage.images_path / f"{stem}_{variation.name}.png")
