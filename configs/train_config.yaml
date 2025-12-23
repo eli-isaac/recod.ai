@@ -17,10 +17,11 @@ data:
     # - "eliplutchok/recod-pretrain-2"
     # - "eliplutchok/recod-pretrain-3"
     - "eliplutchok/recod-finetune"
+    - "eliplutchok/recod-finetune"
     - "eliplutchok/recod-pretrain-original"
   
   num_workers: 12
-  val_split: 0.10
+  val_split: 0.01
 
 training:
   batch_size: 32

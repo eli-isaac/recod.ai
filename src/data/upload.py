@@ -65,8 +65,8 @@ def create_dataset_from_files(
             }
     
     # Create dataset using generator to avoid memory overflow
-    # Use smaller writer_batch_size to avoid Arrow 2GB batch limit with large mask arrays
-    dataset = Dataset.from_generator(data_generator, writer_batch_size=500)
+    # Use very small writer_batch_size to avoid Arrow 2GB batch limit with large mask arrays
+    dataset = Dataset.from_generator(data_generator, writer_batch_size=128)
     
     # Cast image column to Image feature for proper handling
     dataset = dataset.cast_column("image", Image())
